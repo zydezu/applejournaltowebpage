@@ -8,9 +8,11 @@ Convert Apple Journal entries to static HTML and Markdown files.
 pip install -r requirements.txt
 ```
 
-For HEIC image conversion, you need to have [ImageMagick](https://imagemagick.org/) available on your system.
+Make sure HEIC image conversion, you need to have [ImageMagick](https://imagemagick.org/) available on your system.
 
 ## Usage
+
+Make
 
 ```bash
 python main.py
@@ -22,8 +24,7 @@ Select your Apple Journal folder when prompted.
 
 The script generates two output directories in `journals/`:
 
-- `md/` - Markdown files for each entry
-- `html/` - HTML files with styling and lightbox image viewer
+- `html/` - HTML files with styling intended for viewing
 
 ## Features
 

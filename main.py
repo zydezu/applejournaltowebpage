@@ -67,13 +67,11 @@ def find_paths(folder_path):
 
 
 def setup_output_folders():
-    md_output_path = os.path.join(os.getcwd(), "journals/md")
     html_output_path = os.path.join(os.getcwd(), "journals/html")
-    for path in [md_output_path, html_output_path]:
-        if os.path.exists(path):
-            shutil.rmtree(path)
-        os.makedirs(path, exist_ok=True)
-    return md_output_path, html_output_path
+    if os.path.exists(html_output_path):
+        shutil.rmtree(html_output_path)
+    os.makedirs(html_output_path, exist_ok=True)
+    return html_output_path
 
 
 def convert_image(src, dest):
@@ -81,9 +79,7 @@ def convert_image(src, dest):
     return True
 
 
-def process_entry(
-    filename, entries_path, resources_path, md_output_path, html_output_path
-):
+def process_entry(filename, entries_path, resources_path, html_output_path):
     file_path = os.path.join(entries_path, filename)
     if not os.path.isfile(file_path):
         return
@@ -102,9 +98,7 @@ def process_entry(
     metrics_html = ""
     for metric in activity_metrics:
         metrics_html += f'<div class="metric">{metric}</div>\n'
-    md_entry_folder = os.path.join(md_output_path, entry_folder_name)
     html_entry_folder = os.path.join(html_output_path, entry_folder_name)
-    os.makedirs(md_entry_folder, exist_ok=True)
     os.makedirs(html_entry_folder, exist_ok=True)
 
     converted_media = []
@@ -132,16 +126,6 @@ def process_entry(
             shutil.copy2(src, output_path)
             converted_media.append({"type": "other", "filename": output_name})
 
-    md_path = os.path.join(md_entry_folder, "content.md")
-    with open(md_path, "w", encoding="utf-8") as f:
-        f.write(f"# {title}\n\n")
-        for m in converted_media:
-            if m["type"] == "heic":
-                f.write(f"![]({m['avif']})\n")
-            else:
-                f.write(f"![]({m['filename']})\n")
-        f.write(f"{text_content}\n\n")
-
     html_path = os.path.join(html_entry_folder, "index.html")
     if converted_media:
         media_grid = '        <div class="media-grid">\n'
@@ -168,7 +152,6 @@ def process_entry(
             )
         )
 
-    print(f"Created: {entry_folder_name}/content.md")
     print(f"Created: {entry_folder_name}/index.html")
 
 
@@ -187,7 +170,7 @@ def open_journal_folder():
         print("Error: Resources folder not found")
         return
 
-    md_output_path, html_output_path = setup_output_folders()
+    html_output_path = setup_output_folders()
 
     files = sorted(
         f
@@ -196,9 +179,7 @@ def open_journal_folder():
     )
 
     for filename in files:
-        process_entry(
-            filename, entries_path, resources_path, md_output_path, html_output_path
-        )
+        process_entry(filename, entries_path, resources_path, html_output_path)
 
 
 def extract_title(html_content):
