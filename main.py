@@ -121,10 +121,10 @@ def process_entry(filename, entries_path, resources_path, html_output_path):
                     {"type": "heic", "avif": avif_name, "fallback": heic_name}
                 )
         else:
-            output_name = os.path.basename(link)
-            output_path = os.path.join(html_entry_folder, output_name)
-            shutil.copy2(src, output_path)
-            converted_media.append({"type": "other", "filename": output_name})
+            avif_name = f"{basename}.avif"
+            avif_path = os.path.join(html_entry_folder, avif_name)
+            if convert_image(src, avif_path):
+                converted_media.append({"type": "other", "filename": avif_name})
 
     html_path = os.path.join(html_entry_folder, "index.html")
     if converted_media:
@@ -153,6 +153,7 @@ def process_entry(filename, entries_path, resources_path, html_output_path):
         )
 
     print(f"Created: {entry_folder_name}/index.html")
+    return converted_media
 
 
 def open_journal_folder():
@@ -179,7 +180,10 @@ def open_journal_folder():
     )
 
     for filename in files:
-        process_entry(filename, entries_path, resources_path, html_output_path)
+        converted_media = process_entry(
+            filename, entries_path, resources_path, html_output_path
+        )
+        print(converted_media)
 
 
 def extract_title(html_content):

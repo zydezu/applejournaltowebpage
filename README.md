@@ -18,29 +18,29 @@ Make
 python main.py
 ```
 
-Select your Apple Journal folder when prompted.
+Select the exported Apple Journal folder when prompted. You can export Journal data on iOS devices in the Journal app and transfer it to a computer with your preferred method.
 
 ## Output
 
-The script generates two output directories in `journals/`:
+The script generates its output in the `journals/` directory:
 
 - `html/` - HTML files with styling intended for viewing
 
 ## Features
 
-- Extracts title, date, and text content from journal entries
+- Extracts title, date, and text content from journal entries, creating clean HTML files as output
 - Converts HEIC images to AVIF with HEIC fallback, so Apple devices retain the original image quality
 - Responsive grid layout with dark mode support
 
 ## To-do
 
-- Fix non HEIC/AVIF image formats (basically convert all images)
-- Make a homepage with all the journals like on iOS
-- - Infact mirror more iOS design
-- - Should we use smaller image avif thumbnails on the main page?
-- Include health data in journals like steps
-- Add a progress bar in the Python CLI
-- Exporting a webpage (with all the content in the HTML, or a zip?)
-- - Option to include HEICs, or only AVIFs
-- Allow importing .zips
-- Rewrite this to be usable from a website (eg: convert all the code to Javascript for the web)
+- [x] Fix non HEIC/AVIF image formats (basically convert all images)
+- [] Make a homepage with all the journals like on iOS
+- - [] Infact mirror more iOS design
+- - [] Should we use smaller image avif thumbnails on the main page?
+- [] Include health data in journals like steps
+- [] Add a progress bar in the Python CLI
+- [] Exporting a webpage (with all the content in the HTML, or a zip?)
+- - [] Option to include HEICs, or only AVIFs
+- [] Allow importing .zips
+- [] Rewrite this to be usable from a website (eg: convert all the code to Javascript for the web)
