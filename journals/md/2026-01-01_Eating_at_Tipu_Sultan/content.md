@@ -1,3 +1,0 @@
-# Eating at Tipu Sultan
-
-D4F9DED5-FD4E-41E8-A53B-9BE3063764B1.heic

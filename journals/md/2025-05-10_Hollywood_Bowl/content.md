@@ -1,3 +1,0 @@
-# Hollywood Bowl
-
-35F6C31F-E73F-4D09-AB3C-CECFB354CEE7.heic
