@@ -14,8 +14,9 @@ HTML_TEMPLATE = """<!DOCTYPE html>
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="stylesheet" href="../../../style.css">
     <title>{title}</title>
+    <link rel="stylesheet" href="../../../style.css">
+    <script src="../../../image.js"></script>
 </head>
 
 <body>
@@ -25,8 +26,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
         {metrics}
     </div>
     <div class="content">
-        <div class="media-grid">
-{media}        </div>
+{media_grid}
         <p>{text}</p>
     </div>
 </body>
@@ -143,22 +143,27 @@ def process_entry(
         f.write(f"{text_content}\n\n")
 
     html_path = os.path.join(html_entry_folder, "index.html")
-    media_html = ""
-    for m in converted_media:
-        if m["type"] == "heic":
-            media_html += f"""<picture>
+    if converted_media:
+        media_grid = '        <div class="media-grid">\n'
+        for m in converted_media:
+            if m["type"] == "heic":
+                media_grid += f"""            <picture onclick="openLightbox('{m["avif"]}')">
                 <source srcset="{m["avif"]}" type="image/avif">
                 <img src="{m["fallback"]}" loading="lazy">
             </picture>"""
-        else:
-            media_html += f'<img src="{m["filename"]}" loading="lazy">\n'
+            else:
+                media_grid += f'<img src="{m["filename"]}" loading="lazy" onclick="openLightbox(\'{m["filename"]}\')">\n'
+        media_grid += "</div>\n"
+    else:
+        media_grid = ""
+
     with open(html_path, "w", encoding="utf-8") as f:
         f.write(
             HTML_TEMPLATE.format(
                 title=title,
                 date=date,
                 metrics=metrics_html,
-                media=media_html,
+                media_grid=media_grid,
                 text=text_content,
             )
         )
@@ -217,14 +222,15 @@ def extract_text_content(html_content):
 
 
 def extract_activity_metrics(html_content):
-    metrics = []
-    pattern = r"<div class='gridItemOverlayText activityMetrics'[^>]*>([^<]+)</div>"
-    matches = re.findall(pattern, html_content)
-    for m in matches:
-        text = m.strip()
-        if text:
-            metrics.append(text)
-    return metrics
+    activities = []
+    items = re.findall(
+        r'<div class="gridItem[^"]*"[^>]*>.*?<div class=\'gridItemOverlayText activityType\'[^>]*>([^<]+)</div>.*?<div class=\'gridItemOverlayText activityMetrics\'[^>]*>([^<]+)</div>',
+        html_content,
+        re.DOTALL,
+    )
+    for activity_type, activity_metric in items:
+        activities.append(f"{activity_type.strip()}: {activity_metric.strip()}")
+    return activities
 
 
 def extract_media_links(html_content):

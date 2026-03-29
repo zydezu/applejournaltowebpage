@@ -19,7 +19,7 @@
 
 @font-face {
     font-family: "Hiragino Kaku Gothic Pro";
-    src: url("assets/fonts/ヒラギノ角ゴ Pro W6.woff2") format("woff2");
+    src: url("fonts/ヒラギノ角ゴ Pro W6.woff2") format("woff2");
     font-weight: 600;
     font-style: normal;
     font-display: swap;
@@ -27,7 +27,7 @@
 
 @font-face {
     font-family: "Hiragino Kaku Gothic Pro";
-    src: url("assets/fonts/ヒラギノ角ゴ Pro W3.woff2") format("woff2");
+    src: url("fonts/ヒラギノ角ゴ Pro W3.woff2") format("woff2");
     font-weight: 400;
     font-style: normal;
     font-display: swap;
@@ -75,7 +75,6 @@ h1 {
     font-size: 2rem;
     font-weight: 600;
     margin: 0;
-    margin-bottom: 15px;
     padding-bottom: 15px;
     border-bottom: 2px solid var(--border-color);
 }
@@ -89,9 +88,17 @@ h1 {
 
 .metric {
     background: var(--metric-bg);
-    padding: 8px 12px;
+    padding: 8px 14px;
     border-radius: 6px;
-    font-size: 0.9rem;
+    font-size: 0.85rem;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.metric::before {
+    content: "🏃";
+    font-size: 1rem;
 }
 
 .content {
@@ -114,28 +121,13 @@ h1 {
     object-fit: cover;
     border-radius: 8px;
     transition: all 0.3s ease;
+    animation: fadeIn 0.5s ease forwards;
 }
 
 .media-grid picture img {
     width: 100%;
     height: 100%;
     object-fit: cover;
-}
-
-.media-grid img:hover,
-.media-grid video:hover,
-.media-grid picture:hover {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: calc(100% * 2);
-    height: auto;
-    min-height: 100%;
-    object-fit: contain;
-    background: var(--bg-color);
-    box-shadow: 0 15px 40px rgba(0, 0, 0, 0.5);
-    z-index: 100;
-    border-radius: 12px;
 }
 
 .media-grid.media-single img,
@@ -163,4 +155,46 @@ p {
     h1 {
         font-size: 1.5rem;
     }
+}
+
+.lightbox {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.9);
+    z-index: 1000;
+    cursor: pointer;
+    justify-content: center;
+    align-items: center;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.lightbox.active {
+    display: flex;
+    opacity: 1;
+}
+
+.lightbox img {
+    max-width: 90%;
+    max-height: 90%;
+    object-fit: contain;
+    border-radius: 8px;
+    transform: scale(0.8);
+    opacity: 0;
+    transition: transform 0.3s ease, opacity 0.3s ease;
+}
+
+.lightbox.active img {
+    transform: scale(1);
+    opacity: 1;
+}
+
+.media-grid img,
+.media-grid video,
+.media-grid picture {
+    cursor: pointer;
 }
