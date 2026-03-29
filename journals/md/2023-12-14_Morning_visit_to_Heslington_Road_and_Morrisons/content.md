@@ -1,0 +1,4 @@
+# Morning visit to Heslington Road and Morrisons
+
+469022D9-8970-4D2F-8904-F936742E8B5D.HEIC
+158D89EE-B614-40C4-85E8-50E2F199BDD6.heic
