@@ -44,6 +44,8 @@ def open_journal_folder():
         return
 
     output_path = os.path.join(os.getcwd(), "journals/md")
+    if os.path.exists(output_path):
+        shutil.rmtree(output_path)
     os.makedirs(output_path, exist_ok=True)
 
     files = sorted(
