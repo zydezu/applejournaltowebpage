@@ -8,7 +8,8 @@ from tkinter import Tk, filedialog
 root = Tk()
 root.withdraw()
 
-JOURNAL_PATH = "journals/html"
+JOURNAL_BASE_FILE = "journals/index.html"
+JOURNAL_OUTPUT_PATH = "journals/html"
 
 BASE_HTML_TEMPLATE = """<!DOCTYPE html>
 <html lang="en">
@@ -107,9 +108,11 @@ def find_paths(folder_path):
 
 
 def setup_output_folders():
-    html_output_path = os.path.join(os.getcwd(), JOURNAL_PATH)
-    if os.path.exists(JOURNAL_PATH):
-        shutil.rmtree(JOURNAL_PATH)
+    html_output_path = os.path.join(os.getcwd(), JOURNAL_OUTPUT_PATH)
+    if os.path.exists(JOURNAL_OUTPUT_PATH):
+        shutil.rmtree(JOURNAL_OUTPUT_PATH)
+    if os.path.exists(JOURNAL_BASE_FILE):
+        os.remove(JOURNAL_BASE_FILE)
     os.makedirs(html_output_path, exist_ok=True)
     return html_output_path
 
@@ -228,7 +231,7 @@ def open_journal_folder():
     for i, filename in enumerate(files):
         output = process_entry(filename, entries_path, resources_path, html_output_path)
         print(f"[{i + 1}/{len(files)}] {int((i + 1) / len(files) * 100)}%")
-        home_page_html += f'<a href="{html_output_path}">{output[0]}</a><br>'
+        home_page_html += f'<a href="{html_output_path}/">{output[0]}</a><br>'
 
     with open(home_page_path, "w", encoding="utf-8") as f:
         f.write(home_page_html)
