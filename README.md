@@ -35,12 +35,12 @@ The script generates its output in the `journals/` directory:
 ## To-do
 
 - [x] Fix non HEIC/AVIF image formats (basically convert all images)
-- [] Make a homepage with all the journals like on iOS
-- - [] Infact mirror more iOS design
-- - [] Should we use smaller image avif thumbnails on the main page?
-- [] Include health data in journals like steps
-- [] Add a progress bar in the Python CLI
-- [] Exporting a webpage (with all the content in the HTML, or a zip?)
-- - [] Option to include HEICs, or only AVIFs
-- [] Allow importing .zips
-- [] Rewrite this to be usable from a website (eg: convert all the code to Javascript for the web)
+- [x] Make a homepage with all the journals like on iOS
+- - [ ] Infact mirror more iOS design
+- - [ ] Should we use smaller image avif thumbnails on the main page?
+- [ ] Include health data in journals like steps
+- [x] Add a progress bar in the Python CLI
+- [ ] Exporting a webpage (with all the content in the HTML, or a zip?)
+- - [ ] Option to include HEICs, or only AVIFs
+- [ ] Allow importing .zips
+- [ ] Rewrite this to be usable from a website (eg: convert all the code to Javascript for the web)
