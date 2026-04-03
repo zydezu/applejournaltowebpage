@@ -42,9 +42,9 @@ HTML_TEMPLATE = """<!DOCTYPE html>
 
 <body>
     <div class="header">
+        <a href="../../index.html" class="back-link">← Back</a>
         <div class="date">{date}</div>
         <h1>{title}</h1>
-        <a href="../../index.html" class="back-link">← Back</a>
         {metrics}
     </div>
     <div class="content">
@@ -101,17 +101,38 @@ def find_paths(folder_path):
 
 def setup_output_folders():
     html_output_path = os.path.join(os.getcwd(), JOURNAL_OUTPUT_PATH)
+    thumbnails_path = os.path.join(os.getcwd(), "journals", "thumbnails")
     if os.path.exists(JOURNAL_OUTPUT_PATH):
         shutil.rmtree(JOURNAL_OUTPUT_PATH)
     if os.path.exists(JOURNAL_BASE_FILE):
         os.remove(JOURNAL_BASE_FILE)
     os.makedirs(html_output_path, exist_ok=True)
-    return html_output_path
+    os.makedirs(thumbnails_path, exist_ok=True)
+    return html_output_path, thumbnails_path
 
 
-def convert_image(src, dest):
-    subprocess.run(["magick", src, "-quality", "80", dest], check=True)
+def convert_image(src, dest, size=None):
+    cmd = ["magick", src, "-quality", "80"]
+    if size:
+        cmd.extend(
+            [
+                "-resize",
+                f"{size}x{size}^",
+                "-gravity",
+                "center",
+                "-extent",
+                f"{size}x{size}",
+            ]
+        )
+    cmd.append(dest)
+    subprocess.run(cmd, check=True)
     return True
+
+
+def create_thumbnail(src, dest_folder, basename, size=200):
+    dest = os.path.join(dest_folder, f"{basename}.avif")
+    convert_image(src, dest, size)
+    return os.path.basename(dest)
 
 
 def build_media_html(media_item):
@@ -127,7 +148,9 @@ def build_media_html(media_item):
     return ""
 
 
-def process_entry(filename, entries_path, resources_path, html_output_path) -> list:
+def process_entry(
+    filename, entries_path, resources_path, html_output_path, thumbnails_path
+) -> list:
     file_path = os.path.join(entries_path, filename)
     if not os.path.isfile(file_path):
         return []
@@ -165,19 +188,34 @@ def process_entry(filename, entries_path, resources_path, html_output_path) -> l
             avif_name = f"{basename}.avif"
             avif_path = os.path.join(html_entry_folder, avif_name)
             if convert_image(src, avif_path):
+                thumb_name = create_thumbnail(
+                    src, thumbnails_path, f"{entry_folder_name}_{basename}"
+                )
                 converted_media.append(
-                    {"type": "heic", "avif": avif_name, "fallback": heic_name}
+                    {
+                        "type": "heic",
+                        "avif": avif_name,
+                        "fallback": heic_name,
+                        "thumbnail": thumb_name,
+                    }
                 )
         elif ext in IMAGE_EXTENSIONS:
             avif_name = f"{basename}.avif"
             avif_path = os.path.join(html_entry_folder, avif_name)
             if convert_image(src, avif_path):
-                converted_media.append({"type": "image", "filename": avif_name})
+                thumb_name = create_thumbnail(
+                    src, thumbnails_path, f"{entry_folder_name}_{basename}"
+                )
+                converted_media.append(
+                    {"type": "image", "filename": avif_name, "thumbnail": thumb_name}
+                )
         elif ext in VIDEO_EXTENSIONS:
             video_name = basename + ext
             video_path = os.path.join(html_entry_folder, video_name)
             shutil.copy2(src, video_path)
-            converted_media.append({"type": "video", "filename": video_name})
+            converted_media.append(
+                {"type": "video", "filename": video_name, "thumbnail": None}
+            )
 
     html_path = os.path.join(html_entry_folder, "index.html")
     if converted_media:
@@ -202,7 +240,7 @@ def process_entry(filename, entries_path, resources_path, html_output_path) -> l
     return [text_content, converted_media]
 
 
-def build_home_row(filename, output, html_output_path):
+def build_home_row(filename, output):
     entry_folder_name = filename.replace(".html", "")
     date = entry_folder_name[:10] if len(entry_folder_name) >= 10 else ""
 
@@ -212,12 +250,10 @@ def build_home_row(filename, output, html_output_path):
 
     thumbnails = ""
     for m in output[1][:4]:
-        if m["type"] == "heic":
-            thumbnails += f'<img src="html/{entry_folder_name}/{m["avif"]}" loading="lazy" onload="this.style.opacity=1">'
-        elif m["type"] == "image":
-            thumbnails += f'<img src="html/{entry_folder_name}/{m["filename"]}" loading="lazy" onload="this.style.opacity=1">'
+        if m.get("thumbnail"):
+            thumbnails += f'<img src="thumbnails/{m["thumbnail"]}" loading="lazy" onload="this.style.opacity=1">'
         elif m["type"] == "video":
-            thumbnails += f'<video src="html/{entry_folder_name}/{m["filename"]}" muted playsinline loading="lazy"></video>'
+            thumbnails += f'<video src="html/{entry_folder_name}/{m["filename"]}" muted playsinline loading="lazy" onload="this.style.opacity=1"></video>'
 
     return {
         "date": date,
@@ -238,18 +274,21 @@ def build_home_page(rows, output_path):
 </head>
 <body>
     <h1>My Journals</h1>
-"""
-    for row in rows[::-1]:
-        home_page_html += f"""<a href="{row["link"]}" class="journal-row">
-        <div class="journal-info">
-            <div class="journal-date">{row["date"]}</div>
-            <div class="journal-text">{row["text"]}</div>
-        </div>
-        <div class="journal-thumbnails">{row["thumbnails"]}</div>
-    </a>
+    <div class="journal-list">
 """
 
-    home_page_html += "</body></html>"
+    for row in rows[::-1]:
+        home_page_html += f"""        <a href="{row["link"]}" class="journal-row">
+            <div class="journal-info">
+                <div class="journal-date">{row["date"]}</div>
+                <div class="journal-text">{row["text"]}</div>
+            </div>
+            <div class="journal-thumbnails">{row["thumbnails"]}</div>
+        </a>
+"""
+
+    home_page_html += """    </div>
+</body></html>"""
 
     home_page_path = os.path.join(os.getcwd(), output_path)
     with open(home_page_path, "w", encoding="utf-8") as f:
@@ -273,7 +312,7 @@ def open_journal_folder():
         print("Error: Resources folder not found")
         return
 
-    html_output_path = setup_output_folders()
+    html_output_path, thumbnails_path = setup_output_folders()
 
     files = sorted(
         f
@@ -286,9 +325,11 @@ def open_journal_folder():
     print("Processing journal entries...")
 
     for i, filename in enumerate(files):
-        output = process_entry(filename, entries_path, resources_path, html_output_path)
+        output = process_entry(
+            filename, entries_path, resources_path, html_output_path, thumbnails_path
+        )
         print(f"[{i + 1}/{len(files)}] {int((i + 1) / len(files) * 100)}%")
-        rows.append(build_home_row(filename, output, html_output_path))
+        rows.append(build_home_row(filename, output))
 
     build_home_page(rows, JOURNAL_BASE_FILE)
 
