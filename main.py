@@ -11,7 +11,7 @@ root.withdraw()
 JOURNAL_BASE_FILE = "journals/index.html"
 JOURNAL_OUTPUT_PATH = "journals/html"
 
-BASE_HTML_TEMPLATE = """<!DOCTYPE html>
+JOURNAL_HTML_TEMPLATE = """<!DOCTYPE html>
 <html lang="en">
 
 <head>
@@ -44,6 +44,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
     <div class="header">
         <div class="date">{date}</div>
         <h1>{title}</h1>
+        <a href="../../index.html" class="back-link">← Back</a>
         {metrics}
     </div>
     <div class="content">
@@ -54,17 +55,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
 </html>
 """
 
-MEDIA_EXTENSIONS = (
-    ".heic",
-    ".jpg",
-    ".jpeg",
-    ".png",
-    ".webp",
-    ".avif",
-    ".mov",
-    ".mp4",
-    ".m4v",
-)
+VIDEO_EXTENSIONS = (".mov", ".mp4", ".m4v")
 
 IMAGE_EXTENSIONS = (
     ".jpg",
@@ -72,6 +63,7 @@ IMAGE_EXTENSIONS = (
     ".png",
     ".webp",
     ".avif",
+    ".heic",
 )
 
 
@@ -122,6 +114,19 @@ def convert_image(src, dest):
     return True
 
 
+def build_media_html(media_item):
+    if media_item["type"] == "heic":
+        return f"""<picture onclick="openLightbox('{media_item["avif"]}')">
+                <source srcset="{media_item["avif"]}" type="image/avif">
+                <img src="{media_item["fallback"]}" loading="lazy" onload="this.style.opacity=1">
+            </picture>"""
+    elif media_item["type"] == "image":
+        return f'<img src="{media_item["filename"]}" loading="lazy" onload="this.style.opacity=1" onclick="openLightbox(\'{media_item["filename"]}\')">'
+    elif media_item["type"] == "video":
+        return f'<video src="{media_item["filename"]}" controls playsinline loading="lazy"></video>'
+    return ""
+
+
 def process_entry(filename, entries_path, resources_path, html_output_path) -> list:
     file_path = os.path.join(entries_path, filename)
     if not os.path.isfile(file_path):
@@ -163,27 +168,22 @@ def process_entry(filename, entries_path, resources_path, html_output_path) -> l
                 converted_media.append(
                     {"type": "heic", "avif": avif_name, "fallback": heic_name}
                 )
-        else:
-            if ext in IMAGE_EXTENSIONS:
-                avif_name = f"{basename}.avif"
-                avif_path = os.path.join(html_entry_folder, avif_name)
-                if convert_image(src, avif_path):
-                    converted_media.append({"type": "other", "filename": avif_name})
-            else:
-                shutil.copy2(src, os.path.join(html_entry_folder, basename + ext))
-                converted_media.append({"type": "other", "filename": basename + ext})
+        elif ext in IMAGE_EXTENSIONS:
+            avif_name = f"{basename}.avif"
+            avif_path = os.path.join(html_entry_folder, avif_name)
+            if convert_image(src, avif_path):
+                converted_media.append({"type": "image", "filename": avif_name})
+        elif ext in VIDEO_EXTENSIONS:
+            video_name = basename + ext
+            video_path = os.path.join(html_entry_folder, video_name)
+            shutil.copy2(src, video_path)
+            converted_media.append({"type": "video", "filename": video_name})
 
     html_path = os.path.join(html_entry_folder, "index.html")
     if converted_media:
         media_grid = '        <div class="media-grid">\n'
         for m in converted_media:
-            if m["type"] == "heic":
-                media_grid += f"""            <picture onclick="openLightbox('{m["avif"]}')">
-                <source srcset="{m["avif"]}" type="image/avif">
-                <img src="{m["fallback"]}" loading="lazy" onload="this.style.opacity=1">
-            </picture>"""
-            else:
-                media_grid += f'<img src="{m["filename"]}" loading="lazy" onload="this.style.opacity=1" onclick="openLightbox(\'{m["filename"]}\')">\n'
+            media_grid += f"            {build_media_html(m)}\n"
         media_grid += "</div>\n"
     else:
         media_grid = ""
@@ -200,6 +200,62 @@ def process_entry(filename, entries_path, resources_path, html_output_path) -> l
         )
 
     return [text_content, converted_media]
+
+
+def build_home_row(filename, output, html_output_path):
+    entry_folder_name = filename.replace(".html", "")
+    date = entry_folder_name[:10] if len(entry_folder_name) >= 10 else ""
+
+    text_snippet = (
+        output[0][:150] + "..." if output[0] and len(output[0]) > 150 else output[0]
+    )
+
+    thumbnails = ""
+    for m in output[1][:4]:
+        if m["type"] == "heic":
+            thumbnails += f'<img src="html/{entry_folder_name}/{m["avif"]}" loading="lazy" onload="this.style.opacity=1">'
+        elif m["type"] == "image":
+            thumbnails += f'<img src="html/{entry_folder_name}/{m["filename"]}" loading="lazy" onload="this.style.opacity=1">'
+        elif m["type"] == "video":
+            thumbnails += f'<video src="html/{entry_folder_name}/{m["filename"]}" muted playsinline loading="lazy"></video>'
+
+    return {
+        "date": date,
+        "link": f"html/{entry_folder_name}/",
+        "text": text_snippet,
+        "thumbnails": thumbnails,
+    }
+
+
+def build_home_page(rows, output_path):
+    home_page_html = """<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Journals</title>
+    <link rel="stylesheet" href="../../style.css">
+</head>
+<body>
+    <h1>My Journals</h1>
+"""
+    for row in rows[::-1]:
+        home_page_html += f"""<a href="{row["link"]}" class="journal-row">
+        <div class="journal-info">
+            <div class="journal-date">{row["date"]}</div>
+            <div class="journal-text">{row["text"]}</div>
+        </div>
+        <div class="journal-thumbnails">{row["thumbnails"]}</div>
+    </a>
+"""
+
+    home_page_html += "</body></html>"
+
+    home_page_path = os.path.join(os.getcwd(), output_path)
+    with open(home_page_path, "w", encoding="utf-8") as f:
+        f.write(home_page_html)
+
+    return home_page_path
 
 
 def open_journal_folder():
@@ -225,16 +281,18 @@ def open_journal_folder():
         if os.path.isfile(os.path.join(entries_path, f))
     )
 
-    home_page_path = os.path.join(os.getcwd(), "journals/index.html")
-    home_page_html = ""
+    rows = []
+
+    print("Processing journal entries...")
 
     for i, filename in enumerate(files):
         output = process_entry(filename, entries_path, resources_path, html_output_path)
         print(f"[{i + 1}/{len(files)}] {int((i + 1) / len(files) * 100)}%")
-        home_page_html += f'<a href="{html_output_path}/">{output[0]}</a><br>'
+        rows.append(build_home_row(filename, output, html_output_path))
 
-    with open(home_page_path, "w", encoding="utf-8") as f:
-        f.write(home_page_html)
+    build_home_page(rows, JOURNAL_BASE_FILE)
+
+    print("All journal entries processed and home page generated.")
 
 
 def extract_title(html_content):
@@ -276,7 +334,7 @@ def extract_media_links(html_content):
     matches = re.findall(pattern, html_content)
     links = []
     for m in matches:
-        if m.lower().endswith(MEDIA_EXTENSIONS):
+        if m.lower().endswith(IMAGE_EXTENSIONS + VIDEO_EXTENSIONS):
             links.append(m.replace("../Resources/", ""))
     return links
 
