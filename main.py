@@ -3,6 +3,7 @@ import platform
 import re
 import shutil
 import subprocess
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from tkinter import Tk, filedialog
 
 root = Tk()
@@ -144,7 +145,7 @@ def generate_video_thumbnail(video_src, thumbnails_path, entry_folder_name, base
             stderr=subprocess.DEVNULL,
         )
         if os.path.exists(frame_path):
-            convert_image(frame_path, avif_path)
+            convert_image(frame_path, avif_path, 200)
             try:
                 os.remove(frame_path)
             except OSError:
@@ -351,16 +352,50 @@ def open_journal_folder():
 
     print("Processing journal entries...")
 
-    for i, filename in enumerate(files):
-        output = process_entry(
-            filename, entries_path, resources_path, html_output_path, thumbnails_path
-        )
-        print(f"[{i + 1}/{len(files)}] {int((i + 1) / len(files) * 100)}%")
-        rows.append(build_home_row(filename, output))
+    results = [None] * len(files)
+    completed = 0
+    max_workers = max(1, os.cpu_count() or 1)
+
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        future_to_index = {
+            executor.submit(
+                process_entry,
+                filename,
+                entries_path,
+                resources_path,
+                html_output_path,
+                thumbnails_path,
+            ): idx
+            for idx, filename in enumerate(files)
+        }
+
+        for future in as_completed(future_to_index):
+            idx = future_to_index[future]
+            filename = files[idx]
+            try:
+                output = future.result(timeout=10)
+            except TimeoutError:
+                output = None
+                print(f"\nWarning: timeout processing {filename}", file=sys.stderr)
+            except Exception as e:
+                output = None
+                print(f"\nError processing {filename}: {e}", file=sys.stderr)
+
+            results[idx] = (filename, output)
+            completed += 1
+            pct = int((completed / len(files)) * 100)
+            bar_len = 40
+            filled = int(bar_len * completed / len(files))
+            bar = "#" * filled + "-" * (bar_len - filled)
+            print(f"\r[{bar}] {pct}% ({completed}/{len(files)})", end="", flush=True)
+
+    rows = []
+    for filename, output in results:
+        if output is not None:
+            rows.append(build_home_row(filename, output))
 
     build_home_page(rows, JOURNAL_BASE_FILE)
-
-    print("All journal entries processed and home page generated.")
+    print("\nAll journal entries processed and home page generated.")
 
 
 def extract_title(html_content):

@@ -61,6 +61,19 @@ body {
     padding: 40px 20px;
 }
 
+a:link {
+    color: var(--text-color);
+    transition: color 0.10s;
+}
+
+a:visited {
+    color: var(--text-color);
+}
+
+a:hover {
+    color: var(--text-color);
+}
+
 .header {
     width: 100%;
     margin-bottom: 20px;
