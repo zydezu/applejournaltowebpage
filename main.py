@@ -129,6 +129,32 @@ def convert_image(src, dest, size=None):
     return True
 
 
+def generate_video_thumbnail(video_src, thumbnails_path, entry_folder_name, basename):
+    frame_path = os.path.join(
+        thumbnails_path, f"{entry_folder_name}_{basename}_frame.png"
+    )
+    avif_name = f"{entry_folder_name}_{basename}.avif"
+    avif_path = os.path.join(thumbnails_path, avif_name)
+    try:
+        # Try to extract the first frame using ffmpeg
+        subprocess.run(
+            ["ffmpeg", "-i", video_src, "-frames:v", "1", "-q:v", "2", frame_path],
+            check=True,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+        if os.path.exists(frame_path):
+            convert_image(frame_path, avif_path)
+            try:
+                os.remove(frame_path)
+            except OSError:
+                pass
+            return avif_name
+    except Exception:
+        pass
+    return None
+
+
 def create_thumbnail(src, dest_folder, basename, size=200):
     dest = os.path.join(dest_folder, f"{basename}.avif")
     convert_image(src, dest, size)
@@ -213,8 +239,11 @@ def process_entry(
             video_name = basename + ext
             video_path = os.path.join(html_entry_folder, video_name)
             shutil.copy2(src, video_path)
+            thumb_avif = generate_video_thumbnail(
+                video_path, thumbnails_path, entry_folder_name, basename
+            )
             converted_media.append(
-                {"type": "video", "filename": video_name, "thumbnail": None}
+                {"type": "video", "filename": video_name, "thumbnail": thumb_avif}
             )
 
     html_path = os.path.join(html_entry_folder, "index.html")
@@ -252,8 +281,6 @@ def build_home_row(filename, output):
     for m in output[1][:4]:
         if m.get("thumbnail"):
             thumbnails += f'<img src="thumbnails/{m["thumbnail"]}" loading="lazy" onload="this.style.opacity=1">'
-        elif m["type"] == "video":
-            thumbnails += f'<video src="html/{entry_folder_name}/{m["filename"]}" muted playsinline loading="lazy" onload="this.style.opacity=1"></video>'
 
     return {
         "date": date,

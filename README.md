@@ -37,7 +37,7 @@ The script generates its output in the `journals/` directory:
 - [x] Fix non HEIC/AVIF image formats (basically convert all images)
 - [x] Make a homepage with all the journals like on iOS
 - - [ ] Infact mirror more iOS design
-- - [ ] Should we use smaller image avif thumbnails on the main page?
+- - [x] Should we use smaller image avif thumbnails on the main page?
 - [ ] Include health data in journals like steps
 - [x] Add a progress bar in the Python CLI
 - [ ] Exporting a webpage (with all the content in the HTML, or a zip?)
