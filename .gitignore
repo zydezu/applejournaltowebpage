@@ -1,4 +1,6 @@
 .venv/
 __pycache__/
 test/
-journals/
+journals/html
+journals/thumbnails
+journals/index.html

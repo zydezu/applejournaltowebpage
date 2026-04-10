@@ -3,6 +3,8 @@ import platform
 import re
 import shutil
 import subprocess
+import sys
+import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from tkinter import Tk, filedialog
 
@@ -19,7 +21,8 @@ JOURNAL_HTML_TEMPLATE = """<!DOCTYPE html>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Journals</title>
-    <link rel="stylesheet" href="../../style.css">
+    <link rel="stylesheet" href="style.css">
+    <link rel="icon" href="favicon.jpg">
 </head>
 
 <body>
@@ -37,8 +40,9 @@ HTML_TEMPLATE = """<!DOCTYPE html>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{title}</title>
-    <link rel="stylesheet" href="../../../style.css">
-    <script src="../../../image.js"></script>
+    <link rel="stylesheet" href="../../style.css">
+    <link rel="icon" href="../../favicon.jpg">
+    <script src="../../image.js"></script>
 </head>
 
 <body>
@@ -293,16 +297,26 @@ def build_home_row(filename, output):
 
 def build_home_page(rows, output_path):
     home_page_html = """<!DOCTYPE html>
-<html lang="en">
+<html lang=\"en\">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta charset=\"UTF-8\">
+    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">
     <title>Journals</title>
-    <link rel="stylesheet" href="../../style.css">
+    <link rel=\"stylesheet\" href=\"style.css\">
+    <link rel=\"icon\" href=\"favicon.jpg\">
+    <script src=\"home.js\"></script>
 </head>
 <body>
-    <h1>My Journals</h1>
-    <div class="journal-list">
+    <h1 class=\"home-title\">My Journals</h1>
+    <div class=\"journal-controls\">
+        <input id=\"searchBox\" type=\"text\" placeholder=\"Search journals...\" />
+        <select id=\"dateFormat\" title=\"Date format\">
+            <option value=\"yyyy-mm-dd\" selected>YYYY-MM-DD</option>
+            <option value=\"dd/mm/yyyy\">DD/MM/YYYY</option>
+            <option value=\"long\">Month Day Year</option>
+        </select>
+    </div>
+    <div class=\"journal-list\">
 """
 
     for row in rows[::-1]:
@@ -326,6 +340,7 @@ def build_home_page(rows, output_path):
 
 
 def open_journal_folder():
+    start_time = time.time()
     folder_path = pick_folder()
     if not folder_path:
         return
@@ -354,6 +369,7 @@ def open_journal_folder():
 
     results = [None] * len(files)
     completed = 0
+    media_count = 0
     max_workers = max(1, os.cpu_count() or 1)
 
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
@@ -382,6 +398,8 @@ def open_journal_folder():
                 print(f"\nError processing {filename}: {e}", file=sys.stderr)
 
             results[idx] = (filename, output)
+            if output is not None:
+                media_count += len(output[1])
             completed += 1
             pct = int((completed / len(files)) * 100)
             bar_len = 40
@@ -395,7 +413,14 @@ def open_journal_folder():
             rows.append(build_home_row(filename, output))
 
     build_home_page(rows, JOURNAL_BASE_FILE)
-    print("\nAll journal entries processed and home page generated.")
+    elapsed_time = time.time() - start_time
+    avg_time_per_photo = elapsed_time / media_count if media_count > 0 else 0
+
+    print(f"\nAll journal entries processed and home page generated.")
+    print(f"Total time: {elapsed_time:.2f} seconds")
+    print(
+        f"Average time per photo: {avg_time_per_photo:.4f} seconds ({media_count} photos)"
+    )
 
 
 def extract_title(html_content):

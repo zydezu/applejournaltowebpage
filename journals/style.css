@@ -92,6 +92,10 @@ h1 {
     border-bottom: 2px solid var(--border-color);
 }
 
+.home-title {
+    margin: unset;
+}
+
 .metrics {
     display: flex;
     gap: 15px;
@@ -210,6 +214,10 @@ p {
 }
 
 /* Home page journal rows */
+.journal-list {
+    width: 100%;
+}
+
 .journal-row {
     display: flex;
     flex-direction: row;
@@ -224,6 +232,16 @@ p {
     text-decoration: none;
     color: inherit;
     transition: background-color 0.2s ease;
+    opacity: 0;
+    animation: fadeIn 0.4s ease forwards;
+}
+
+.journal-row.visible {
+    opacity: 1;
+}
+
+.journal-row.hidden {
+    display: none;
 }
 
 .journal-row:hover {
@@ -278,4 +296,32 @@ p {
         width: calc(25% - 6px);
         height: 60px;
     }
+}
+
+.journal-controls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    justify-content: center;
+    width: 100%;
+    margin: 12px 0 16px 0;
+}
+
+.journal-controls input,
+.journal-controls select {
+    padding: 8px 12px;
+    border-radius: 6px;
+    border: 1px solid var(--border-color);
+    font-family: var(--font-family);
+    font-size: 0.9rem;
+    background: var(--bg-color);
+    color: var(--text-color);
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.journal-controls input:focus,
+.journal-controls select:focus {
+    outline: none;
+    border-color: var(--text-color);
+    box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.1);
 }
