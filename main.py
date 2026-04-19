@@ -150,6 +150,10 @@ def create_thumbnail(src, dest_folder, basename, size=200):
     return os.path.basename(dest)
 
 
+def sanitize_filename(name):
+    return "".join(c for c in name if c.isalnum() or c in "-_").strip() or "untitled"
+
+
 def build_media_html(media_item):
     filename = media_item["filename"]
     if media_item["type"] == "image":
@@ -174,7 +178,7 @@ def process_entry(
     media_links = extract_media_links(content)
     activity_metrics = extract_activity_metrics(content)
 
-    entry_folder_name = filename.replace(".html", "")
+    entry_folder_name = sanitize_filename(filename.replace(".html", ""))
     date = entry_folder_name[:10] if len(entry_folder_name) >= 10 else ""
 
     metrics_html = ""
@@ -268,7 +272,7 @@ def process_entry(
 
 
 def build_home_row(filename, output, layout_class):
-    entry_folder_name = filename.replace(".html", "")
+    entry_folder_name = sanitize_filename(filename.replace(".html", ""))
     date = entry_folder_name[:10] if len(entry_folder_name) >= 10 else ""
 
     text_snippet = (
