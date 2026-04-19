@@ -25,12 +25,14 @@ Select the exported Apple Journal folder when prompted. You can export Journal d
 The script generates its output in the `journals/` directory:
 
 - `html/` - HTML files with styling intended for viewing
+- `thumbnails/` - thumbnails used for the home page showing a list of all the journals
 
 ## Features
 
 - Extracts title, date, and text content from journal entries, creating clean HTML files as output
 - Converts HEIC images to AVIF with HEIC fallback, so Apple devices retain the original image quality
 - Responsive grid layout with dark mode support
+- Optional support to upload to an r2 bucket
 
 ## To-do
 
@@ -39,6 +41,6 @@ The script generates its output in the `journals/` directory:
 - - [x] Should we use smaller image avif thumbnails on the main page?
 - [ ] Include health data in journals like steps
 - [x] Add a progress bar in the Python CLI
-- [ ] Exporting a webpage (with all the content in the HTML, or a zip?)
-- - [ ] Option to include HEICs, or only AVIFs
+- [x] Exporting a webpage (with all the content in the HTML, or a zip?)
+- - [-] Option to include HEICs, or only AVIFs
 - [ ] Allow importing .zips

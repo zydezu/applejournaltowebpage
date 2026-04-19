@@ -9,30 +9,13 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from tkinter import Tk, filedialog
 
+from r2_config import R2_PUBLIC_URL, USE_R2, upload_to_r2
+
 root = Tk()
 root.withdraw()
 
 JOURNAL_BASE_FILE = "journals/index.html"
 JOURNAL_OUTPUT_PATH = "journals/html"
-
-JOURNAL_HTML_TEMPLATE = """<!DOCTYPE html>
-<html lang="en">
-
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Journals</title>
-    <link rel="stylesheet" href="style.css">
-    <link rel="icon" href="favicon.jpg">
-</head>
-
-<body>
-    <div class="journals">
-        {entries}
-    </div>
-</body>
-</html>
-"""
 
 HTML_TEMPLATE = """<!DOCTYPE html>
 <html lang="en">
@@ -168,15 +151,11 @@ def create_thumbnail(src, dest_folder, basename, size=200):
 
 
 def build_media_html(media_item):
-    if media_item["type"] == "heic":
-        return f"""<picture onclick="openLightbox('{media_item["avif"]}')">
-                <source srcset="{media_item["avif"]}" type="image/avif">
-                <img src="{media_item["fallback"]}" loading="lazy" onload="this.style.opacity=1">
-            </picture>"""
-    elif media_item["type"] == "image":
-        return f'<img src="{media_item["filename"]}" loading="lazy" onload="this.style.opacity=1" onclick="openLightbox(\'{media_item["filename"]}\')">'
+    filename = media_item["filename"]
+    if media_item["type"] == "image":
+        return f'<img src="{filename}" loading="lazy" onload="this.style.opacity=1" onclick="openLightbox(\'{filename}\')">'
     elif media_item["type"] == "video":
-        return f'<video src="{media_item["filename"]}" controls playsinline loading="lazy"></video>'
+        return f'<video src="{filename}" controls playsinline loading="lazy"></video>'
     return ""
 
 
@@ -205,6 +184,7 @@ def process_entry(
     os.makedirs(html_entry_folder, exist_ok=True)
 
     converted_media = []
+    large_files_to_upload = []
     for link in media_links:
         src = os.path.join(resources_path, link)
         if not os.path.exists(src):
@@ -213,44 +193,56 @@ def process_entry(
         basename = os.path.splitext(os.path.basename(link))[0]
 
         if ext == ".heic":
-            heic_name = f"{basename}.heic"
-            heic_path = os.path.join(html_entry_folder, heic_name)
-            shutil.copy2(src, heic_path)
+            ext = ".avif"
 
-            avif_name = f"{basename}.avif"
-            avif_path = os.path.join(html_entry_folder, avif_name)
-            if convert_image(src, avif_path):
-                thumb_name = create_thumbnail(
-                    src, thumbnails_path, f"{entry_folder_name}_{basename}"
-                )
+        if ext in IMAGE_EXTENSIONS or ext == ".heic":
+            if USE_R2 and os.path.getsize(src) > 25 * 1024 * 1024:
+                r2_key = f"journals/{entry_folder_name}/{basename}{ext}"
+                large_files_to_upload.append((src, r2_key))
+                r2_url = f"{R2_PUBLIC_URL.rstrip('/')}/{r2_key}"
                 converted_media.append(
                     {
-                        "type": "heic",
-                        "avif": avif_name,
-                        "fallback": heic_name,
-                        "thumbnail": thumb_name,
+                        "type": "image",
+                        "filename": r2_url,
+                        "thumbnail": None,
                     }
                 )
-        elif ext in IMAGE_EXTENSIONS:
-            avif_name = f"{basename}.avif"
-            avif_path = os.path.join(html_entry_folder, avif_name)
-            if convert_image(src, avif_path):
-                thumb_name = create_thumbnail(
-                    src, thumbnails_path, f"{entry_folder_name}_{basename}"
+            else:
+                avif_name = f"{basename}.avif"
+                avif_path = os.path.join(html_entry_folder, avif_name)
+                if convert_image(src, avif_path):
+                    thumb_name = create_thumbnail(
+                        src, thumbnails_path, f"{entry_folder_name}_{basename}"
+                    )
+                    converted_media.append(
+                        {
+                            "type": "image",
+                            "filename": avif_name,
+                            "thumbnail": thumb_name,
+                        }
+                    )
+        elif ext in VIDEO_EXTENSIONS:
+            if USE_R2 and os.path.getsize(src) > 25 * 1024 * 1024:
+                r2_key = f"journals/{entry_folder_name}/{basename}{ext}"
+                large_files_to_upload.append((src, r2_key))
+                r2_url = f"{R2_PUBLIC_URL.rstrip('/')}/{r2_key}"
+                converted_media.append(
+                    {
+                        "type": "video",
+                        "filename": r2_url,
+                        "thumbnail": None,
+                    }
+                )
+            else:
+                video_name = basename + ext
+                video_path = os.path.join(html_entry_folder, video_name)
+                shutil.copy2(src, video_path)
+                thumb_avif = generate_video_thumbnail(
+                    video_path, thumbnails_path, entry_folder_name, basename
                 )
                 converted_media.append(
-                    {"type": "image", "filename": avif_name, "thumbnail": thumb_name}
+                    {"type": "video", "filename": video_name, "thumbnail": thumb_avif}
                 )
-        elif ext in VIDEO_EXTENSIONS:
-            video_name = basename + ext
-            video_path = os.path.join(html_entry_folder, video_name)
-            shutil.copy2(src, video_path)
-            thumb_avif = generate_video_thumbnail(
-                video_path, thumbnails_path, entry_folder_name, basename
-            )
-            converted_media.append(
-                {"type": "video", "filename": video_name, "thumbnail": thumb_avif}
-            )
 
     html_path = os.path.join(html_entry_folder, "index.html")
     if converted_media:
@@ -272,7 +264,7 @@ def process_entry(
             )
         )
 
-    return [text_content, converted_media]
+    return [text_content, converted_media, large_files_to_upload]
 
 
 def build_home_row(filename, output, layout_class):
@@ -410,14 +402,37 @@ def open_journal_folder():
             print(f"\r[{bar}] {pct}% ({completed}/{len(files)})", end="", flush=True)
 
     rows = []
+    large_files_to_upload = []
     for idx, (filename, output) in enumerate(results):
         if output is not None:
-            # Cycle through 5 layout variants to diversify rows
             layout_class = f"layout-{idx % 5 + 1}"
             rows.append(build_home_row(filename, output, layout_class))
+            if len(output) > 2:
+                large_files_to_upload.extend(output[2])
 
     build_home_page(rows, JOURNAL_BASE_FILE)
 
+    print("\n" + "-" * 40)
+    if large_files_to_upload and USE_R2:
+        print(f"Uploading {len(large_files_to_upload)} large files to R2...")
+        for i, (local_path, r2_key) in enumerate(large_files_to_upload):
+            print(
+                f"  [{i + 1}/{len(large_files_to_upload)}] Uploading {os.path.basename(local_path)}..."
+            )
+            if not upload_to_r2(local_path, r2_key):
+                print(f"    Failed: {local_path}")
+        print("R2 upload complete.")
+
+    elapsed_time = time.time() - start_time
+    avg_time_per_photo = elapsed_time / media_count if media_count > 0 else 0
+
+    print("\nAll journal entries processed and home page generated.")
+    print(f"Total time: {elapsed_time:.2f} seconds")
+    print(
+        f"Average time per photo: {avg_time_per_photo:.4f} seconds ({media_count} photos)"
+    )
+
+    print("Creating journals.zip...")
     journals_zip = os.path.join(os.getcwd(), "journals.zip")
     with zipfile.ZipFile(journals_zip, "w", zipfile.ZIP_DEFLATED) as zf:
         for root, dirs, files in os.walk("journals"):
@@ -425,16 +440,7 @@ def open_journal_folder():
                 if file != "journals.zip":
                     file_path = os.path.join(root, file)
                     zf.write(file_path, file_path)
-
-    elapsed_time = time.time() - start_time
-    avg_time_per_photo = elapsed_time / media_count if media_count > 0 else 0
-
-    print(f"\nAll journal entries processed and home page generated.")
-    print(f"Total time: {elapsed_time:.2f} seconds")
-    print(
-        f"Average time per photo: {avg_time_per_photo:.4f} seconds ({media_count} photos)"
-    )
-    print(f"journals.zip created successfully.")
+    print("journals.zip created successfully.")
 
 
 def extract_title(html_content):
