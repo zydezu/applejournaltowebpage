@@ -273,12 +273,157 @@ p {
     flex-shrink: 0;
 }
 
+/* Base image style */
 .journal-thumbnails img,
 .journal-thumbnails video {
     width: 80px;
     height: 80px;
     object-fit: cover;
-    border-radius: 6px;
+    border-radius: 8px;
+    border: 1px solid #fff;
+    transition: transform 0.25s ease, z-index 0.25s ease;
+}
+
+/* Overlap effect */
+.journal-thumbnails img:not(:first-child),
+.journal-thumbnails video:not(:first-child) {
+    margin-left: -10px;
+}
+
+/* Size variation */
+.journal-thumbnails img:nth-child(1) {
+    width: 120px;
+    height: 120px;
+}
+
+.journal-thumbnails img:nth-child(2) {
+    width: 70px;
+    height: 70px;
+}
+
+.journal-thumbnails img:nth-child(3) {
+    width: 100px;
+    height: 100px;
+}
+
+.journal-thumbnails img:nth-child(4) {
+    width: 65px;
+    height: 65px;
+}
+
+.journal-thumbnails img:nth-child(5) {
+    width: 90px;
+    height: 90px;
+}
+
+/* Rotation + offsets + scale */
+.journal-thumbnails img:nth-child(1) {
+    transform: rotate(-5deg) translateY(8px) scale(1.08);
+}
+
+.journal-thumbnails img:nth-child(2) {
+    transform: rotate(3deg) translateY(-12px) translateX(-5px) scale(0.95);
+}
+
+.journal-thumbnails img:nth-child(3) {
+    transform: rotate(-2deg) translateY(4px) scale(1.02);
+}
+
+.journal-thumbnails img:nth-child(4) {
+    transform: rotate(4deg) translateY(-6px) translateX(8px) scale(0.92);
+}
+
+.journal-thumbnails img:nth-child(5) {
+    transform: rotate(-1deg) translateY(10px) scale(1.05);
+}
+
+/* Hover effect */
+.journal-thumbnails img:hover,
+.journal-thumbnails video:hover {
+    transform: scale(1.2) rotate(0deg) !important;
+    z-index: 10;
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+}
+
+/* Layout Variants: give each row a distinct thumbnail arrangement */
+.journal-thumbnails.layout-2 img:nth-child(1) {
+    width: 140px;
+    height: 140px;
+    transform: rotate(-4deg) translateY(6px) scale(1.04);
+}
+.journal-thumbnails.layout-2 img:nth-child(2) {
+    width: 60px;
+    height: 60px;
+    transform: rotate(6deg) translateY(-4px);
+}
+.journal-thumbnails.layout-2 img:nth-child(3) {
+    width: 110px;
+    height: 110px;
+    transform: rotate(-2deg) translateY(2px);
+}
+.journal-thumbnails.layout-2 img:nth-child(4) {
+    width: 70px;
+    height: 70px;
+    transform: rotate(3deg) translateY(-2px);
+}
+.journal-thumbnails.layout-2 img:nth-child(5) {
+    width: 90px;
+    height: 90px;
+    transform: rotate(-1deg) translateY(4px);
+}
+
+.journal-thumbnails.layout-3 img:nth-child(1) {
+    width: 120px;
+    height: 120px;
+    transform: rotate(0deg) translateY(6px) scale(1.05);
+}
+.journal-thumbnails.layout-3 img:nth-child(2) {
+    width: 100px;
+    height: 100px;
+    transform: rotate(-3deg) translateY(-6px) scale(0.95);
+}
+.journal-thumbnails.layout-3 img:nth-child(3) {
+    width: 90px;
+    height: 90px;
+    transform: rotate(5deg) translateY(2px);
+}
+.journal-thumbnails.layout-3 img:nth-child(4) {
+    width: 70px;
+    height: 70px;
+    transform: rotate(-6deg) translateY(-4px);
+}
+.journal-thumbnails.layout-3 img:nth-child(5) {
+    width: 80px;
+    height: 80px;
+    transform: rotate(2deg) translateY(6px);
+}
+
+.journal-thumbnails.layout-4 img:not(:first-child) {
+    margin-left: -14px;
+}
+.journal-thumbnails.layout-4 img:nth-child(1) {
+    width: 130px;
+    height: 130px;
+}
+.journal-thumbnails.layout-4 img:nth-child(2) {
+    width: 60px;
+    height: 60px;
+}
+.journal-thumbnails.layout-4 img:nth-child(3) {
+    width: 110px;
+    height: 110px;
+}
+.journal-thumbnails.layout-4 img:nth-child(4) {
+    width: 70px;
+    height: 70px;
+}
+.journal-thumbnails.layout-4 img:nth-child(5) {
+    width: 90px;
+    height: 90px;
+}
+
+.journal-thumbnails.layout-5 img:hover {
+    transform: scale(1.25) rotate(0deg);
 }
 
 @media (max-width: 600px) {

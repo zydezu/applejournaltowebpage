@@ -5,6 +5,7 @@ import shutil
 import subprocess
 import sys
 import time
+import zipfile
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from tkinter import Tk, filedialog
 
@@ -274,7 +275,7 @@ def process_entry(
     return [text_content, converted_media]
 
 
-def build_home_row(filename, output):
+def build_home_row(filename, output, layout_class):
     entry_folder_name = filename.replace(".html", "")
     date = entry_folder_name[:10] if len(entry_folder_name) >= 10 else ""
 
@@ -292,6 +293,7 @@ def build_home_row(filename, output):
         "link": f"html/{entry_folder_name}/",
         "text": text_snippet,
         "thumbnails": thumbnails,
+        "layout": layout_class,
     }
 
 
@@ -325,7 +327,7 @@ def build_home_page(rows, output_path):
                 <div class="journal-date">{row["date"]}</div>
                 <div class="journal-text">{row["text"]}</div>
             </div>
-            <div class="journal-thumbnails">{row["thumbnails"]}</div>
+            <div class="journal-thumbnails {row["layout"]}">{row["thumbnails"]}</div>
         </a>
 """
 
@@ -408,11 +410,22 @@ def open_journal_folder():
             print(f"\r[{bar}] {pct}% ({completed}/{len(files)})", end="", flush=True)
 
     rows = []
-    for filename, output in results:
+    for idx, (filename, output) in enumerate(results):
         if output is not None:
-            rows.append(build_home_row(filename, output))
+            # Cycle through 5 layout variants to diversify rows
+            layout_class = f"layout-{idx % 5 + 1}"
+            rows.append(build_home_row(filename, output, layout_class))
 
     build_home_page(rows, JOURNAL_BASE_FILE)
+
+    journals_zip = os.path.join(os.getcwd(), "journals.zip")
+    with zipfile.ZipFile(journals_zip, "w", zipfile.ZIP_DEFLATED) as zf:
+        for root, dirs, files in os.walk("journals"):
+            for file in files:
+                if file != "journals.zip":
+                    file_path = os.path.join(root, file)
+                    zf.write(file_path, file_path)
+
     elapsed_time = time.time() - start_time
     avg_time_per_photo = elapsed_time / media_count if media_count > 0 else 0
 
@@ -421,6 +434,7 @@ def open_journal_folder():
     print(
         f"Average time per photo: {avg_time_per_photo:.4f} seconds ({media_count} photos)"
     )
+    print(f"journals.zip created successfully.")
 
 
 def extract_title(html_content):
@@ -442,7 +456,10 @@ def extract_text_content(html_content):
         text = re.sub(r"\s+", " ", text)
         text = text.strip()
         texts.append(text)
-    return "<br>".join(texts).replace("…", "...")
+    # Replace arrow markers with HTML line breaks for nicer rendering
+    combined = "<br>".join(texts).replace("…", "...")
+    combined = combined.replace("->", "<br>")
+    return combined
 
 
 def extract_activity_metrics(html_content):
