@@ -53,8 +53,9 @@ BASE_URL (optional, will default to https://example.com if not filled in)
 - [x] Make a homepage with all the journals like on iOS
 - - [x] Should we use smaller image avif thumbnails on the main page?
 - [x] Generate OpenGraph tags for every page
+- [ ] Add a h264 fallback for videos
 - [ ] Include health data in journals like steps
 - [x] Add a progress bar in the Python CLI
 - [x] Exporting a webpage (with all the content in the HTML, or a zip?)
 - - [ ] Option to include HEICs, or only AVIFs
-- [ ] Allow importing .zips
+- [ ] Allow importing Apple Journal folders as .zips
