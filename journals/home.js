@@ -21,29 +21,30 @@ function formatDateLong(isoDate) {
     return `${MONTH_NAMES[m - 1]} ${d}${suffix} ${year}`;
 }
 
-function applyDateFormat(rowData, fmt) {
+function applyDateFormat(entries, fmt) {
     const formatter = fmt === 'long' ? formatDateLong : (iso) => formatDate(iso, fmt);
-    rowData.forEach(({ element, iso, dateDisplayRef }) => {
-        const dateEl = element.querySelector('.journal-date');
-        if (dateEl && iso) {
-            const formatted = formatter(iso);
+    entries.forEach((entry) => {
+        const dateEl = entry.element.querySelector('.journal-date');
+        if (dateEl && entry.iso) {
+            const formatted = formatter(entry.iso);
             dateEl.textContent = formatted;
-            if (dateDisplayRef) dateDisplayRef.current = formatted.toLowerCase();
+            entry.dateDisplay = formatted.toLowerCase();
         }
     });
 }
 
-function filterRows(rowData, searchBox) {
-    const q = (searchBox?.value || '').toLowerCase().trim();
-
-    rowData.forEach(({ element, iso, text, dateDisplayRef }) => {
-        const dateDisplay = dateDisplayRef?.current || '';
-        const matchesQuery = !q || text.includes(q) || dateDisplay.includes(q) || iso.includes(q);
-        element.classList.toggle('hidden', !matchesQuery);
+function filterEntries(entries, query) {
+    const q = query.toLowerCase().trim();
+    entries.forEach((entry) => {
+        const matchesQuery = !q || 
+            entry.text.includes(q) || 
+            entry.dateDisplay.includes(q) || 
+            entry.iso.includes(q);
+        entry.element.classList.toggle('hidden', !matchesQuery);
     });
 }
 
-function init() {
+document.addEventListener('DOMContentLoaded', () => {
     const savedScroll = sessionStorage.getItem('journalScroll');
     if (savedScroll) {
         window.scrollTo(0, parseInt(savedScroll, 10));
@@ -56,7 +57,7 @@ function init() {
     const rows = document.querySelectorAll('.journal-row');
     if (!rows.length) return;
 
-    const rowData = [];
+    const entries = [];
     rows.forEach((el) => {
         const dateEl = el.querySelector('.journal-date');
         const textEl = el.querySelector('.journal-text');
@@ -64,15 +65,11 @@ function init() {
 
         el.dataset.isoDate = iso;
 
-        const dateDisplayRef = { current: '' };
-        dateDisplayRef.current = dateEl?.innerText.toLowerCase() || '';
-
-        rowData.push({
+        entries.push({
             element: el,
-            iso,
+            iso: iso,
             text: textEl?.innerText.toLowerCase() || '',
-            dateDisplay: dateEl?.innerText.toLowerCase() || '',
-            dateDisplayRef
+            dateDisplay: dateEl?.innerText.toLowerCase() || ''
         });
     });
 
@@ -84,25 +81,20 @@ function init() {
         dateFormat.value = savedFormat;
     }
 
-    if (searchBox) searchBox.addEventListener('input', () => filterRows(rowData, searchBox));
-    if (dateFormat) {
-        applyDateFormat(rowData, dateFormat.value);
-        rowData.forEach(({ element, dateDisplayRef }) => {
-            const dateEl = element.querySelector('.journal-date');
-            if (dateEl) dateDisplayRef.current = dateEl.innerText.toLowerCase();
-        });
-        dateFormat.addEventListener('change', (e) => {
-            localStorage.setItem('dateFormat', e.target.value);
-            applyDateFormat(rowData, e.target.value);
-            rowData.forEach(({ element, dateDisplayRef }) => {
-                const dateEl = element.querySelector('.journal-date');
-                if (dateEl) dateDisplayRef.current = dateEl.innerText.toLowerCase();
-            });
-            filterRows(rowData, searchBox);
-        });
+    function updateDisplay() {
+        applyDateFormat(entries, dateFormat.value);
+        filterEntries(entries, searchBox.value);
     }
 
-    filterRows(rowData, searchBox);
-}
+    if (searchBox) {
+        searchBox.addEventListener('input', updateDisplay);
+    }
 
-init();
+    if (dateFormat) {
+        updateDisplay();
+        dateFormat.addEventListener('change', () => {
+            localStorage.setItem('dateFormat', dateFormat.value);
+            updateDisplay();
+        });
+    }
+});
