@@ -2,4 +2,3 @@ pillow
 pillow-heif
 boto3
 python-dotenv
-dotenv

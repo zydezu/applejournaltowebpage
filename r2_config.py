@@ -9,6 +9,7 @@ R2_ACCESS_KEY = os.environ.get("R2_ACCESS_KEY", "")
 R2_SECRET_KEY = os.environ.get("R2_SECRET_KEY", "")
 R2_BUCKET = os.environ.get("R2_BUCKET", "")
 R2_PUBLIC_URL = os.environ.get("R2_PUBLIC_URL", "")
+BASE_URL = os.environ.get("BASE_URL", "https://example.com")
 
 USE_R2 = bool(
     R2_ACCOUNT_ID and R2_ACCESS_KEY and R2_SECRET_KEY and R2_BUCKET and R2_PUBLIC_URL

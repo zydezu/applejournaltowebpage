@@ -9,7 +9,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from tkinter import Tk, filedialog
 
-from r2_config import R2_PUBLIC_URL, USE_R2, upload_to_r2
+from r2_config import BASE_URL, R2_PUBLIC_URL, USE_R2, upload_to_r2
 
 root = Tk()
 root.withdraw()
@@ -26,6 +26,17 @@ HTML_TEMPLATE = """<!DOCTYPE html>
     <title>{title}</title>
     <link rel="stylesheet" href="../../style.css">
     <link rel="icon" href="../../favicon.jpg">
+
+    <meta property="og:title" content="{title}">
+    <meta property="og:type" content="article">
+    <meta property="og:url" content="{url}">
+    <meta property="og:description" content="{description}">
+    {og_image}
+    <meta property="og:logo" content="{base_url}/favicon.jpg">
+    <meta content="#dfa0a9" name="theme-color" />
+
+    <meta content="summary_large_image" name="twitter:card" />
+
     <script src="../../image.js"></script>
 </head>
 
@@ -181,6 +192,9 @@ def process_entry(
     entry_folder_name = sanitize_filename(filename.replace(".html", ""))
     date = entry_folder_name[:10] if len(entry_folder_name) >= 10 else ""
 
+    page_url = f"{BASE_URL}/html/{entry_folder_name}/"
+    first_image = None
+
     metrics_html = ""
     for metric in activity_metrics:
         metrics_html += f'<div class="metric">{metric}</div>\n'
@@ -253,9 +267,15 @@ def process_entry(
         media_grid = '        <div class="media-grid">\n'
         for m in converted_media:
             media_grid += f"            {build_media_html(m)}\n"
+            if not first_image and m["thumbnail"]:
+                first_image = f"../../html/{entry_folder_name}/{m['thumbnail']}"
         media_grid += "</div>\n"
     else:
         media_grid = ""
+
+    og_image_html = (
+        f'<meta property="og:image" content="{first_image}">' if first_image else ""
+    )
 
     with open(html_path, "w", encoding="utf-8") as f:
         f.write(
@@ -265,6 +285,10 @@ def process_entry(
                 metrics=metrics_html,
                 media_grid=media_grid,
                 text=text_content,
+                url=page_url,
+                description=text_content[:200] if text_content else "",
+                og_image=og_image_html,
+                base_url=BASE_URL,
             )
         )
 
@@ -293,21 +317,31 @@ def build_home_row(filename, output, layout_class):
     }
 
 
-def build_home_page(rows, output_path):
-    home_page_html = """<!DOCTYPE html>
-<html lang=\"en\">
+def build_home_page(rows, output_path, base_url):
+    home_page_html = f"""<!DOCTYPE html>
+<html lang="en">
 <head>
-    <meta charset=\"UTF-8\">
-    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Journals</title>
-    <link rel=\"stylesheet\" href=\"style.css\">
-    <link rel=\"icon\" href=\"favicon.jpg\">
-    <script src=\"home.js\"></script>
+
+    <link rel="stylesheet" href="style.css">
+    <link rel="icon" href="favicon.jpg">
+
+    <meta property="og:title" content="My Journals">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="{base_url}/">
+    <meta property="og:description" content="A collection of my journals">
+    <meta content="#dfa0a9" name="theme-color" />
+    <meta property="og:logo" content="{base_url}/favicon.jpg">
+    <meta content="summary_large_image" name="twitter:card" />
+
+    <script src="home.js"></script>
 </head>
 <body>
-    <h1 class=\"home-title\">My Journals</h1>
+    <h1 class=\"home-title\">Journals</h1>
     <div class=\"journal-controls\">
-        <input id=\"searchBox\" type=\"text\" placeholder=\"Search journals...\" />
+        <input id=\"searchBox\" type=\"text\" placeholder=\"Search here...\" />
         <select id=\"dateFormat\" title=\"Date format\">
             <option value=\"yyyy-mm-dd\" selected>YYYY-MM-DD</option>
             <option value=\"dd/mm/yyyy\">DD/MM/YYYY</option>
@@ -414,7 +448,7 @@ def open_journal_folder():
             if len(output) > 2:
                 large_files_to_upload.extend(output[2])
 
-    build_home_page(rows, JOURNAL_BASE_FILE)
+    build_home_page(rows, JOURNAL_BASE_FILE, BASE_URL)
 
     print("\n" + "-" * 40)
     if large_files_to_upload and USE_R2:
