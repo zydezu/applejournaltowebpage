@@ -267,8 +267,11 @@ def process_entry(
         media_grid = '        <div class="media-grid">\n'
         for m in converted_media:
             media_grid += f"            {build_media_html(m)}\n"
-            if not first_image and m["thumbnail"]:
-                first_image = f"../../html/{entry_folder_name}/{m['thumbnail']}"
+            if not first_image and m.get("filename"):
+                if m["filename"].startswith("http"):
+                    first_image = m["filename"]
+                else:
+                    first_image = f"{BASE_URL}/html/{entry_folder_name}/{m['filename']}"
         media_grid += "</div>\n"
     else:
         media_grid = ""
@@ -280,7 +283,7 @@ def process_entry(
     with open(html_path, "w", encoding="utf-8") as f:
         f.write(
             HTML_TEMPLATE.format(
-                title=title,
+                title=title if title else BASE_URL,
                 date=date,
                 metrics=metrics_html,
                 media_grid=media_grid,
@@ -329,10 +332,11 @@ def build_home_page(rows, output_path, base_url):
     <link rel="stylesheet" href="style.css">
     <link rel="icon" href="favicon.jpg">
 
-    <meta property="og:title" content="My Journals">
+    <meta property="og:title" content="Journals">
     <meta property="og:type" content="website">
     <meta property="og:url" content="{base_url}/">
-    <meta property="og:description" content="A collection of my journals">
+    <meta property="og:description" content="H-hey... what are you doing going around posting links to my letters... d-don't do that bakahead...">
+    <meta property="og:image" content="{base_url}/favicon.jpg">
     <meta content="#dfa0a9" name="theme-color" />
     <meta property="og:logo" content="{base_url}/favicon.jpg">
     <meta content="summary_large_image" name="twitter:card" />

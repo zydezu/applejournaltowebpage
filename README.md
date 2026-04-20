@@ -39,9 +39,9 @@ The script generates its output in the `journals/` directory:
 - [x] Fix non HEIC/AVIF image formats (basically convert all images)
 - [x] Make a homepage with all the journals like on iOS
 - - [x] Should we use smaller image avif thumbnails on the main page?
-- [ ] Generate OpenGraph tags for every page
+- [x] Generate OpenGraph tags for every page
 - [ ] Include health data in journals like steps
 - [x] Add a progress bar in the Python CLI
 - [x] Exporting a webpage (with all the content in the HTML, or a zip?)
-- - [-] Option to include HEICs, or only AVIFs
+- - [ ] Option to include HEICs, or only AVIFs
 - [ ] Allow importing .zips
