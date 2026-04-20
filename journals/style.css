@@ -144,8 +144,8 @@ h1 {
 }
 
 p {
-    line-height: 1.8;
-    font-size: 1.1rem;
+    line-height: 1.6;
+    font-size: 1rem;
     margin: 0;
     white-space: pre-wrap;
 }
@@ -273,6 +273,12 @@ p {
     flex-shrink: 0;
 }
 
+.journal-count {
+    font-size: 0.9rem;
+    margin-bottom: 15px;
+    animation: fadeIn 0.5s ease-out 0.5s both;
+}
+
 /* Base image style */
 .journal-thumbnails img,
 .journal-thumbnails video {
@@ -351,21 +357,25 @@ p {
     height: 140px;
     transform: rotate(-4deg) translateY(6px) scale(1.04);
 }
+
 .journal-thumbnails.layout-2 img:nth-child(2) {
     width: 60px;
     height: 60px;
     transform: rotate(6deg) translateY(-4px);
 }
+
 .journal-thumbnails.layout-2 img:nth-child(3) {
     width: 110px;
     height: 110px;
     transform: rotate(-2deg) translateY(2px);
 }
+
 .journal-thumbnails.layout-2 img:nth-child(4) {
     width: 70px;
     height: 70px;
     transform: rotate(3deg) translateY(-2px);
 }
+
 .journal-thumbnails.layout-2 img:nth-child(5) {
     width: 90px;
     height: 90px;
@@ -377,21 +387,25 @@ p {
     height: 120px;
     transform: rotate(0deg) translateY(6px) scale(1.05);
 }
+
 .journal-thumbnails.layout-3 img:nth-child(2) {
     width: 100px;
     height: 100px;
     transform: rotate(-3deg) translateY(-6px) scale(0.95);
 }
+
 .journal-thumbnails.layout-3 img:nth-child(3) {
     width: 90px;
     height: 90px;
     transform: rotate(5deg) translateY(2px);
 }
+
 .journal-thumbnails.layout-3 img:nth-child(4) {
     width: 70px;
     height: 70px;
     transform: rotate(-6deg) translateY(-4px);
 }
+
 .journal-thumbnails.layout-3 img:nth-child(5) {
     width: 80px;
     height: 80px;
@@ -401,22 +415,27 @@ p {
 .journal-thumbnails.layout-4 img:not(:first-child) {
     margin-left: -14px;
 }
+
 .journal-thumbnails.layout-4 img:nth-child(1) {
     width: 130px;
     height: 130px;
 }
+
 .journal-thumbnails.layout-4 img:nth-child(2) {
     width: 60px;
     height: 60px;
 }
+
 .journal-thumbnails.layout-4 img:nth-child(3) {
     width: 110px;
     height: 110px;
 }
+
 .journal-thumbnails.layout-4 img:nth-child(4) {
     width: 70px;
     height: 70px;
 }
+
 .journal-thumbnails.layout-4 img:nth-child(5) {
     width: 90px;
     height: 90px;

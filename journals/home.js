@@ -33,6 +33,21 @@ function applyDateFormat(entries, fmt) {
     });
 }
 
+function sortEntries(entries, sortBy) {
+    return [...entries].sort((a, b) => {
+        if (sortBy === 'date-asc') {
+            return a.iso.localeCompare(b.iso);
+        } else if (sortBy === 'date-desc') {
+            return b.iso.localeCompare(a.iso);
+        } else if (sortBy === 'title-asc') {
+            return a.text.localeCompare(b.text);
+        } else if (sortBy === 'title-desc') {
+            return b.text.localeCompare(a.text);
+        }
+        return 0;
+    });
+}
+
 function filterEntries(entries, query) {
     const q = query.toLowerCase().trim();
     entries.forEach((entry) => {
@@ -42,6 +57,17 @@ function filterEntries(entries, query) {
             entry.iso.includes(q);
         entry.element.classList.toggle('hidden', !matchesQuery);
     });
+}
+
+function updateJournalList(entries) {
+    const journalList = document.querySelector('.journal-list');
+    if (!journalList) return;
+
+    // Detach all elements
+    entries.forEach(entry => journalList.removeChild(entry.element));
+    
+    // Reattach in sorted order
+    entries.forEach(entry => journalList.appendChild(entry.element));
 }
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -75,15 +101,43 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const searchBox = document.getElementById('searchBox');
     const dateFormat = document.getElementById('dateFormat');
+    const sortBy = document.getElementById('sortBy');
+    const countValue = document.getElementById('countValue');
+    const journalCount = document.getElementById('journalCount');
 
     const savedFormat = localStorage.getItem('dateFormat');
     if (savedFormat && dateFormat) {
         dateFormat.value = savedFormat;
     }
 
+    const savedSort = localStorage.getItem('sortBy');
+    if (savedSort && sortBy) {
+        sortBy.value = savedSort;
+    }
+
     function updateDisplay() {
+        // Apply date formatting first
         applyDateFormat(entries, dateFormat.value);
-        filterEntries(entries, searchBox.value);
+        
+        // Then sort
+        const sortedEntries = sortEntries(entries, sortBy.value);
+        
+        // Update the DOM order
+        updateJournalList(sortedEntries);
+        
+        // Finally filter
+        filterEntries(sortedEntries, searchBox.value);
+
+        // Update count display
+        if (countValue && journalCount) {
+            const visibleCount = sortedEntries.filter(e => !e.element.classList.contains('hidden')).length;
+            const totalCount = entries.length;
+            if (searchBox.value.trim()) {
+                countValue.textContent = `${visibleCount} of ${totalCount}`;
+            } else {
+                countValue.textContent = visibleCount;
+            }
+        }
     }
 
     if (searchBox) {
@@ -91,10 +145,19 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     if (dateFormat) {
-        updateDisplay();
         dateFormat.addEventListener('change', () => {
             localStorage.setItem('dateFormat', dateFormat.value);
             updateDisplay();
         });
     }
+
+    if (sortBy) {
+        sortBy.addEventListener('change', () => {
+            localStorage.setItem('sortBy', sortBy.value);
+            updateDisplay();
+        });
+    }
+
+    // Initial display
+    updateDisplay();
 });

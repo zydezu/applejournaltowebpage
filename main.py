@@ -340,13 +340,22 @@ def build_home_page(rows, output_path, base_url):
 </head>
 <body>
     <h1 class=\"home-title\">Journals</h1>
-    <div class=\"journal-controls\">
-        <input id=\"searchBox\" type=\"text\" placeholder=\"Search here...\" />
-        <select id=\"dateFormat\" title=\"Date format\">
-            <option value=\"yyyy-mm-dd\" selected>YYYY-MM-DD</option>
-            <option value=\"dd/mm/yyyy\">DD/MM/YYYY</option>
-            <option value=\"long\">Month Day Year</option>
+    <div class="journal-controls">
+        <input id="searchBox" type="text" placeholder="Search here..." />
+        <select id="dateFormat" title="Date format">
+            <option value="yyyy-mm-dd" selected>YYYY-MM-DD</option>
+            <option value="dd/mm/yyyy">DD/MM/YYYY</option>
+            <option value="long">Month Day Year</option>
         </select>
+        <select id="sortBy" title="Sort by">
+            <option value="date-desc" selected>Newest first</option>
+            <option value="date-asc">Oldest first</option>
+            <option value="title-asc">Title A-Z</option>
+            <option value="title-desc">Title Z-A</option>
+        </select>
+    </div>
+    <div id="journalCount" class="journal-count">
+        <span id="countValue">0</span> entries
     </div>
     <div class=\"journal-list\">
 """
@@ -496,13 +505,19 @@ def extract_text_content(html_content):
         return ""
     texts = []
     for body in matches:
-        text = re.sub(r"<[^>]+>", " ", body)
-        text = re.sub(r"\s+", " ", text)
+        text = re.sub(r"<p[^>]*>", "\n", body)
+        text = re.sub(r"</p>", "", text)
+        text = re.sub(r"<br\s*/?>", "\n", text)
+        text = re.sub(r"<[^>]+>", " ", text)
+        text = re.sub(r"\n\s*\n", "\n", text)
+        # Fix: collapse spaces per line, not across the whole string
+        text = "\n".join(line.strip() for line in text.split("\n"))
         text = text.strip()
         texts.append(text)
-    # Replace arrow markers with HTML line breaks for nicer rendering
-    combined = "<br>".join(texts).replace("…", "...")
-    combined = combined.replace("->", "<br>")
+    # Fix: join sections, then convert \n → <br> in one pass at the end
+    combined = "<br><br>".join(texts)
+    combined = combined.replace("\n", "<br>")
+    combined = combined.replace("…", "...")
     return combined
 
 

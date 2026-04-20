@@ -2,6 +2,7 @@
 __pycache__/
 test/
 .env
+test.py
 journals/index.html
 journals/html
 journals/thumbnails
