@@ -6,7 +6,7 @@ import subprocess
 import sys
 import time
 import zipfile
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor, as_completed
 from tkinter import Tk, filedialog
 
 from r2_config import BASE_URL, R2_PUBLIC_URL, USE_R2, upload_to_r2
@@ -27,7 +27,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
     <link rel="stylesheet" href="../../style.css">
     <link rel="icon" href="../../favicon.jpg">
 
-    <meta property="og:title" content="{title}">
+    <meta property="og:title" content="{og_title}">
     <meta property="og:type" content="article">
     <meta property="og:url" content="{url}">
     <meta property="og:description" content="{description}">
@@ -67,115 +67,156 @@ IMAGE_EXTENSIONS = (
 )
 
 
-def main():
-    open_journal_folder()
-
-
-def pick_folder():
-    if platform.system() == "Linux":
-        try:
-            result = subprocess.run(
-                ["zenity", "--file-selection", "--directory"],
-                stdout=subprocess.PIPE,
-                text=True,
-            )
-            return result.stdout.strip()
-        except FileNotFoundError:
-            return None
-    else:
-        return filedialog.askdirectory()
-
-
-def find_paths(folder_path):
-    entries_path = None
-    resources_path = None
-    for root, dirs, files in os.walk(folder_path):
-        if "Entries" in dirs:
-            entries_path = os.path.join(root, "Entries")
-        if "Resources" in dirs:
-            resources_path = os.path.join(root, "Resources")
-        if entries_path and resources_path:
-            break
-    return entries_path, resources_path
-
-
-def setup_output_folders():
-    html_output_path = os.path.join(os.getcwd(), JOURNAL_OUTPUT_PATH)
-    thumbnails_path = os.path.join(os.getcwd(), "journals", "thumbnails")
-    if os.path.exists(JOURNAL_OUTPUT_PATH):
-        shutil.rmtree(JOURNAL_OUTPUT_PATH)
-    if os.path.exists(JOURNAL_BASE_FILE):
-        os.remove(JOURNAL_BASE_FILE)
-    os.makedirs(html_output_path, exist_ok=True)
-    os.makedirs(thumbnails_path, exist_ok=True)
-    return html_output_path, thumbnails_path
-
-
-def convert_image(src, dest, size=None):
+# Image conversion
+def convert_image(src: str, dest: str, size: int | None = None) -> bool:
     cmd = ["magick", src, "-quality", "80"]
     if size:
-        cmd.extend(
-            [
-                "-resize",
-                f"{size}x{size}^",
-                "-gravity",
-                "center",
-                "-extent",
-                f"{size}x{size}",
-            ]
-        )
+        cmd += [
+            "-resize",
+            f"{size}x{size}^",
+            "-gravity",
+            "center",
+            "-extent",
+            f"{size}x{size}",
+        ]
     cmd.append(dest)
-    subprocess.run(cmd, check=True)
-    return True
+    try:
+        subprocess.run(
+            cmd, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
+        )
+        return True
+    except Exception as e:
+        print(f"magick error ({src}): {e}", file=sys.stderr)
+        return False
 
 
-def generate_video_thumbnail(video_src, thumbnails_path, entry_folder_name, basename):
-    frame_path = os.path.join(
-        thumbnails_path, f"{entry_folder_name}_{basename}_frame.png"
-    )
+def convert_image_and_thumbnail(
+    src: str,
+    dest_avif: str,
+    thumb_avif: str,
+    thumb_size: int = 200,
+) -> bool:
+    ok1 = convert_image(src, dest_avif)
+    ok2 = convert_image(src, thumb_avif, thumb_size)
+    return ok1 and ok2
+
+
+# Video thumbnail
+def generate_video_thumbnail(
+    video_src: str,
+    thumbnails_path: str,
+    entry_folder_name: str,
+    basename: str,
+    size: int = 200,
+) -> str | None:
     avif_name = f"{entry_folder_name}_{basename}.avif"
     avif_path = os.path.join(thumbnails_path, avif_name)
+    tmp_png = avif_path + "_tmp.png"
     try:
-        # Try to extract the first frame using ffmpeg
-        subprocess.run(
-            ["ffmpeg", "-i", video_src, "-frames:v", "1", "-q:v", "2", frame_path],
-            check=True,
-            stdout=subprocess.DEVNULL,
+        ffmpeg = subprocess.Popen(
+            [
+                "ffmpeg",
+                "-i",
+                video_src,
+                "-frames:v",
+                "1",
+                "-f",
+                "image2pipe",
+                "-vcodec",
+                "png",
+                "pipe:1",
+            ],
+            stdout=subprocess.PIPE,
             stderr=subprocess.DEVNULL,
         )
-        if os.path.exists(frame_path):
-            convert_image(frame_path, avif_path, 200)
-            try:
-                os.remove(frame_path)
-            except OSError:
-                pass
-            return avif_name
-    except Exception:
-        pass
-    return None
+        frame_bytes, _ = ffmpeg.communicate()
+        if not frame_bytes:
+            return None
+        with open(tmp_png, "wb") as f:
+            f.write(frame_bytes)
+        convert_image(tmp_png, avif_path, size)
+        try:
+            os.remove(tmp_png)
+        except OSError:
+            pass
+        return avif_name
+    except Exception as e:
+        print(f"video thumbnail error ({video_src}): {e}", file=sys.stderr)
+        return None
 
 
-def create_thumbnail(src, dest_folder, basename, size=200):
-    dest = os.path.join(dest_folder, f"{basename}.avif")
-    convert_image(src, dest, size)
-    return os.path.basename(dest)
+# Helpers
+def sanitize_filename(name: str) -> str:
+    name = "".join(c for c in name if c.isalnum() or c in "-_")
+    name = re.sub(r"[-_]{2,}", "_", name)  # collapse runs left by stripped unicode
+    return name.strip("-_") or "untitled"
 
 
-def sanitize_filename(name):
-    return "".join(c for c in name if c.isalnum() or c in "-_").strip() or "untitled"
-
-
-def build_media_html(media_item):
+def build_media_html(media_item: dict) -> str:
     filename = media_item["filename"]
     if media_item["type"] == "image":
-        return f'<img src="{filename}" loading="lazy" onload="this.style.opacity=1" onclick="openLightbox(\'{filename}\')">'
-    elif media_item["type"] == "video":
+        return (
+            f'<img src="{filename}" loading="lazy" '
+            f'onload="this.style.opacity=1" '
+            f"onclick=\"openLightbox('{filename}')\">"
+        )
+    if media_item["type"] == "video":
         return f'<video src="{filename}" controls playsinline loading="lazy"></video>'
     return ""
 
 
+# HTML parsing
+def extract_all(html_content: str) -> tuple[str, str, list[str], list[str]]:
+    # title
+    title_m = re.search(r"<div class='title'>([^<]+)</div>", html_content)
+    title = title_m.group(1) if title_m else ""
+
+    # body text
+    body_matches = re.findall(
+        r"<div class='title'[^>]*>.*?</div><div class='bodyText'>(.*?)</div>",
+        html_content,
+        re.DOTALL,
+    )
+    texts = []
+    for body in body_matches:
+        text = re.sub(r"<p[^>]*>", "\n", body)
+        text = re.sub(r"</p>", "", text)
+        text = re.sub(r"<br\s*/?>", "\n", text)
+        text = re.sub(r"<[^>]+>", " ", text)
+        text = re.sub(r"\n\s*\n", "\n", text)
+        text = "\n".join(line.strip() for line in text.split("\n"))
+        texts.append(text.strip())
+    combined = "<br><br>".join(texts)
+    combined = combined.replace("\n", "<br>").replace("…", "...")
+
+    # media links
+    raw_links = re.findall(r'(?:src|href)=["\']([^"\']+)["\']', html_content)
+    media_links = [
+        m.replace("../Resources/", "")
+        for m in raw_links
+        if m.lower().endswith(IMAGE_EXTENSIONS + VIDEO_EXTENSIONS)
+    ]
+
+    # activity metrics
+    items = re.findall(
+        r'<div class="gridItem[^"]*"[^>]*>.*?'
+        r"<div class=\'gridItemOverlayText activityType\'[^>]*>([^<]+)</div>.*?"
+        r"<div class=\'gridItemOverlayText activityMetrics\'[^>]*>([^<]+)</div>",
+        html_content,
+        re.DOTALL,
+    )
+    activity_metrics = [f"{t.strip()}: {m.strip()}" for t, m in items]
+
+    return title, combined, media_links, activity_metrics
+
+
+# Entry processor (runs in worker process)
 def process_entry(
-    filename, entries_path, resources_path, html_output_path, thumbnails_path
+    filename: str,
+    entries_path: str,
+    resources_path: str,
+    html_output_path: str,
+    thumbnails_path: str,
 ) -> list:
     file_path = os.path.join(entries_path, filename)
     if not os.path.isfile(file_path):
@@ -184,112 +225,97 @@ def process_entry(
     with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
         content = f.read()
 
-    title = extract_title(content)
-    text_content = extract_text_content(content)
-    media_links = extract_media_links(content)
-    activity_metrics = extract_activity_metrics(content)
+    title, text_content, media_links, activity_metrics = extract_all(content)
 
     entry_folder_name = sanitize_filename(filename.replace(".html", ""))
     date = entry_folder_name[:10] if len(entry_folder_name) >= 10 else ""
-
     page_url = f"{BASE_URL}/html/{entry_folder_name}/"
-    first_image = None
 
-    metrics_html = ""
-    for metric in activity_metrics:
-        metrics_html += f'<div class="metric">{metric}</div>\n'
+    metrics_html = "".join(f'<div class="metric">{m}</div>\n' for m in activity_metrics)
+
     html_entry_folder = os.path.join(html_output_path, entry_folder_name)
     os.makedirs(html_entry_folder, exist_ok=True)
 
-    converted_media = []
-    large_files_to_upload = []
+    converted_media: list[dict] = []
+    large_files_to_upload: list[tuple[str, str]] = []
+
     for link in media_links:
         src = os.path.join(resources_path, link)
         if not os.path.exists(src):
             continue
+
         ext = os.path.splitext(link)[1].lower()
         basename = sanitize_filename(os.path.splitext(os.path.basename(link))[0])
-
         if ext == ".heic":
             ext = ".avif"
 
-        if ext in IMAGE_EXTENSIONS or ext == ".heic":
-            if USE_R2 and os.path.getsize(src) > 25 * 1024 * 1024:
-                r2_key = f"journals/{entry_folder_name}/{basename}{ext}"
-                large_files_to_upload.append((src, r2_key))
-                r2_url = f"{R2_PUBLIC_URL.rstrip('/')}/{r2_key}"
+        is_image = ext in IMAGE_EXTENSIONS
+        is_video = ext in VIDEO_EXTENSIONS
+
+        # large file → R2
+        if USE_R2 and os.path.getsize(src) > 25 * 1024 * 1024:
+            r2_key = f"journals/{entry_folder_name}/{basename}{ext}"
+            large_files_to_upload.append((src, r2_key))
+            r2_url = f"{R2_PUBLIC_URL.rstrip('/')}/{r2_key}"
+            media_type = "image" if is_image else "video" if is_video else None
+            if media_type:
                 converted_media.append(
-                    {
-                        "type": "image",
-                        "filename": r2_url,
-                        "thumbnail": None,
-                    }
+                    {"type": media_type, "filename": r2_url, "thumbnail": None}
                 )
-            else:
-                avif_name = f"{basename}.avif"
-                avif_path = os.path.join(html_entry_folder, avif_name)
-                if convert_image(src, avif_path):
-                    thumb_name = create_thumbnail(
-                        src, thumbnails_path, f"{entry_folder_name}_{basename}"
-                    )
-                    converted_media.append(
-                        {
-                            "type": "image",
-                            "filename": avif_name,
-                            "thumbnail": thumb_name,
-                        }
-                    )
-        elif ext in VIDEO_EXTENSIONS:
-            if USE_R2 and os.path.getsize(src) > 25 * 1024 * 1024:
-                r2_key = f"journals/{entry_folder_name}/{basename}{ext}"
-                large_files_to_upload.append((src, r2_key))
-                r2_url = f"{R2_PUBLIC_URL.rstrip('/')}/{r2_key}"
+            continue
+
+        if is_image:
+            avif_name = f"{basename}.avif"
+            avif_path = os.path.join(html_entry_folder, avif_name)
+            thumb_name = f"{entry_folder_name}_{basename}.avif"
+            thumb_path = os.path.join(thumbnails_path, thumb_name)
+            if convert_image_and_thumbnail(src, avif_path, thumb_path):
                 converted_media.append(
-                    {
-                        "type": "video",
-                        "filename": r2_url,
-                        "thumbnail": None,
-                    }
-                )
-            else:
-                video_name = basename + ext
-                video_path = os.path.join(html_entry_folder, video_name)
-                shutil.copy2(src, video_path)
-                thumb_avif = generate_video_thumbnail(
-                    video_path, thumbnails_path, entry_folder_name, basename
-                )
-                converted_media.append(
-                    {"type": "video", "filename": video_name, "thumbnail": thumb_avif}
+                    {"type": "image", "filename": avif_name, "thumbnail": thumb_name}
                 )
 
-    html_path = os.path.join(html_entry_folder, "index.html")
+        elif is_video:
+            video_name = basename + ext
+            video_path = os.path.join(html_entry_folder, video_name)
+            shutil.copy2(src, video_path)
+            thumb_avif = generate_video_thumbnail(
+                video_path, thumbnails_path, entry_folder_name, basename
+            )
+            converted_media.append(
+                {"type": "video", "filename": video_name, "thumbnail": thumb_avif}
+            )
+
+    # write entry HTML
+    first_image = None
+    media_grid = ""
     if converted_media:
         media_grid = '        <div class="media-grid">\n'
         for m in converted_media:
             media_grid += f"            {build_media_html(m)}\n"
             if not first_image and m.get("filename"):
-                if m["filename"].startswith("http"):
-                    first_image = m["filename"]
-                else:
-                    first_image = f"{BASE_URL}/html/{entry_folder_name}/{m['filename']}"
-        media_grid += "</div>\n"
-    else:
-        media_grid = ""
+                first_image = (
+                    m["filename"]
+                    if m["filename"].startswith("http")
+                    else f"{BASE_URL}/html/{entry_folder_name}/{m['filename']}"
+                )
+        media_grid += "        </div>\n"
 
     og_image_html = (
         f'<meta property="og:image" content="{first_image}">' if first_image else ""
     )
 
+    html_path = os.path.join(html_entry_folder, "index.html")
     with open(html_path, "w", encoding="utf-8") as f:
         f.write(
             HTML_TEMPLATE.format(
-                title=title if title else BASE_URL,
+                title=title,
                 date=date,
                 metrics=metrics_html,
                 media_grid=media_grid,
                 text=text_content,
                 url=page_url,
                 description=text_content[:200] if text_content else "",
+                og_title=title if title else BASE_URL,
                 og_image=og_image_html,
                 base_url=BASE_URL,
             )
@@ -298,11 +324,11 @@ def process_entry(
     return [text_content, converted_media, large_files_to_upload]
 
 
-def build_home_row(filename, output, layout_class):
+# Home page
+def build_home_row(filename: str, output: list, layout_class: str) -> dict:
     entry_folder_name = sanitize_filename(filename.replace(".html", ""))
     date = entry_folder_name[:10] if len(entry_folder_name) >= 10 else ""
 
-    # Strip HTML tags before truncating so we never cut mid-tag
     raw_text = re.sub(r"<[^>]+>", " ", output[0] or "")
     raw_text = re.sub(r"\s+", " ", raw_text).strip()
     text_snippet = (raw_text[:150] + "...") if len(raw_text) > 150 else raw_text
@@ -310,7 +336,10 @@ def build_home_row(filename, output, layout_class):
     thumbnails = ""
     for m in output[1][:4]:
         if m.get("thumbnail"):
-            thumbnails += f'<img src="thumbnails/{m["thumbnail"]}" loading="lazy" onload="this.style.opacity=1">'
+            thumbnails += (
+                f'<img src="thumbnails/{m["thumbnail"]}" loading="lazy" '
+                f'onload="this.style.opacity=1">'
+            )
 
     return {
         "date": date,
@@ -321,7 +350,7 @@ def build_home_row(filename, output, layout_class):
     }
 
 
-def build_home_page(rows, output_path, base_url):
+def build_home_page(rows: list, output_path: str, base_url: str) -> str:
     home_page_html = f"""<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -344,7 +373,7 @@ def build_home_page(rows, output_path, base_url):
     <script src="home.js"></script>
 </head>
 <body>
-    <h1 class=\"home-title\">Journals</h1>
+    <h1 class="home-title">Journals</h1>
     <div class="journal-controls">
         <input id="searchBox" type="text" placeholder="Search here..." />
         <select id="dateFormat" title="Date format">
@@ -362,7 +391,7 @@ def build_home_page(rows, output_path, base_url):
     <div id="journalCount" class="journal-count">
         <span id="countValue">0</span> entries
     </div>
-    <div class=\"journal-list\">
+    <div class="journal-list">
 """
 
     for row in rows[::-1]:
@@ -377,8 +406,7 @@ def build_home_page(rows, output_path, base_url):
             </a>
 """
 
-    home_page_html += """    </div>
-</body></html>"""
+    home_page_html += "    </div>\n</body></html>"
 
     home_page_path = os.path.join(os.getcwd(), output_path)
     with open(home_page_path, "w", encoding="utf-8") as f:
@@ -387,6 +415,46 @@ def build_home_page(rows, output_path, base_url):
     return home_page_path
 
 
+# Folder helpers
+def pick_folder() -> str | None:
+    if platform.system() == "Linux":
+        try:
+            result = subprocess.run(
+                ["zenity", "--file-selection", "--directory"],
+                stdout=subprocess.PIPE,
+                text=True,
+            )
+            return result.stdout.strip() or None
+        except FileNotFoundError:
+            return None
+    return filedialog.askdirectory() or None
+
+
+def find_paths(folder_path: str) -> tuple[str | None, str | None]:
+    entries_path = resources_path = None
+    for root_dir, dirs, _ in os.walk(folder_path):
+        if "Entries" in dirs and not entries_path:
+            entries_path = os.path.join(root_dir, "Entries")
+        if "Resources" in dirs and not resources_path:
+            resources_path = os.path.join(root_dir, "Resources")
+        if entries_path and resources_path:
+            break
+    return entries_path, resources_path
+
+
+def setup_output_folders() -> tuple[str, str]:
+    html_output_path = os.path.join(os.getcwd(), JOURNAL_OUTPUT_PATH)
+    thumbnails_path = os.path.join(os.getcwd(), "journals", "thumbnails")
+    if os.path.exists(JOURNAL_OUTPUT_PATH):
+        shutil.rmtree(JOURNAL_OUTPUT_PATH)
+    if os.path.exists(JOURNAL_BASE_FILE):
+        os.remove(JOURNAL_BASE_FILE)
+    os.makedirs(html_output_path, exist_ok=True)
+    os.makedirs(thumbnails_path, exist_ok=True)
+    return html_output_path, thumbnails_path
+
+
+# Main
 def open_journal_folder():
     start_time = time.time()
     folder_path = pick_folder()
@@ -394,11 +462,9 @@ def open_journal_folder():
         return
 
     entries_path, resources_path = find_paths(folder_path)
-
     if not entries_path:
-        print("Error: entries folder not found")
+        print("Error: Entries folder not found")
         return
-
     if not resources_path:
         print("Error: Resources folder not found")
         return
@@ -411,16 +477,14 @@ def open_journal_folder():
         if os.path.isfile(os.path.join(entries_path, f))
     )
 
-    rows = []
-
-    print("Processing journal entries...")
+    print(f"Processing {len(files)} journal entries...")
 
     results = [None] * len(files)
     completed = 0
     media_count = 0
     max_workers = max(1, os.cpu_count() or 1)
 
-    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+    with ProcessPoolExecutor(max_workers=max_workers) as executor:
         future_to_index = {
             executor.submit(
                 process_entry,
@@ -437,7 +501,7 @@ def open_journal_folder():
             idx = future_to_index[future]
             filename = files[idx]
             try:
-                output = future.result(timeout=10)
+                output = future.result(timeout=60)
             except TimeoutError:
                 output = None
                 print(f"\nWarning: timeout processing {filename}", file=sys.stderr)
@@ -446,17 +510,17 @@ def open_journal_folder():
                 print(f"\nError processing {filename}: {e}", file=sys.stderr)
 
             results[idx] = (filename, output)
-            if output is not None:
+            if output:
                 media_count += len(output[1])
             completed += 1
-            pct = int((completed / len(files)) * 100)
-            bar_len = 40
-            filled = int(bar_len * completed / len(files))
-            bar = "#" * filled + "-" * (bar_len - filled)
+            filled = int(40 * completed / len(files))
+            bar = "#" * filled + "-" * (40 - filled)
+            pct = int(100 * completed / len(files))
             print(f"\r[{bar}] {pct}% ({completed}/{len(files)})", end="", flush=True)
 
-    rows = []
-    large_files_to_upload = []
+    rows: list[dict] = []
+    large_files_to_upload: list[tuple[str, str]] = []
+
     for idx, (filename, output) in enumerate(results):
         if output is not None:
             layout_class = f"layout-{idx % 5 + 1}"
@@ -467,87 +531,48 @@ def open_journal_folder():
     build_home_page(rows, JOURNAL_BASE_FILE, BASE_URL)
 
     print("\n" + "-" * 40)
-    if large_files_to_upload and USE_R2:
-        print(f"Uploading {len(large_files_to_upload)} large files to R2...")
-        for i, (local_path, r2_key) in enumerate(large_files_to_upload):
-            print(
-                f"  [{i + 1}/{len(large_files_to_upload)}] Uploading {os.path.basename(local_path)}..."
-            )
-            if not upload_to_r2(local_path, r2_key):
-                print(f"    Failed: {local_path}")
-        print("R2 upload complete.")
 
-    elapsed_time = time.time() - start_time
-    avg_time_per_photo = elapsed_time / media_count if media_count > 0 else 0
-
-    print("\nAll journal entries processed and home page generated.")
-    print(f"Total time: {elapsed_time:.2f} seconds")
+    elapsed = time.time() - start_time
+    avg = elapsed / media_count if media_count else 0
+    print(f"\nAll entries processed.")
     print(
-        f"Average time per photo: {avg_time_per_photo:.4f} seconds ({media_count} photos)"
+        f"Total time: {elapsed:.2f}s  |  Avg per photo: {avg:.4f}s  ({media_count} photos)"
     )
 
     print("Creating journals.zip...")
     journals_zip = os.path.join(os.getcwd(), "journals.zip")
     with zipfile.ZipFile(journals_zip, "w", zipfile.ZIP_DEFLATED) as zf:
-        for root, dirs, files in os.walk("journals"):
-            for file in files:
+        for root_dir, dirs, zip_files in os.walk("journals"):
+            for file in zip_files:
                 if file != "journals.zip":
-                    file_path = os.path.join(root, file)
+                    file_path = os.path.join(root_dir, file)
                     zf.write(file_path, file_path)
-    print("journals.zip created successfully.")
+    print("journals.zip created.")
+
+    if large_files_to_upload and USE_R2:
+        print(f"Uploading {len(large_files_to_upload)} large files to R2...")
+        with ThreadPoolExecutor(max_workers=8) as upload_pool:
+            upload_futures = {
+                upload_pool.submit(upload_to_r2, local_path, r2_key): (
+                    local_path,
+                    r2_key,
+                )
+                for local_path, r2_key in large_files_to_upload
+            }
+            for i, uf in enumerate(as_completed(upload_futures), 1):
+                local_path, _ = upload_futures[uf]
+                ok = uf.result()
+                status = "✓" if ok else "✗ Failed"
+                print(
+                    f"  [{i}/{len(large_files_to_upload)}] {status} {os.path.basename(local_path)}"
+                )
+        print("R2 upload complete.")
+
+    print("Everything completed successfully!")
 
 
-def extract_title(html_content):
-    match = re.search(r"<div class='title'>([^<]+)</div>", html_content)
-    return match.group(1) if match else ""
-
-
-def extract_text_content(html_content):
-    matches = re.findall(
-        r"<div class='title'[^>]*>.*?</div><div class='bodyText'>(.*?)</div>",
-        html_content,
-        re.DOTALL,
-    )
-    if not matches:
-        return ""
-    texts = []
-    for body in matches:
-        text = re.sub(r"<p[^>]*>", "\n", body)
-        text = re.sub(r"</p>", "", text)
-        text = re.sub(r"<br\s*/?>", "\n", text)
-        text = re.sub(r"<[^>]+>", " ", text)
-        text = re.sub(r"\n\s*\n", "\n", text)
-        # Fix: collapse spaces per line, not across the whole string
-        text = "\n".join(line.strip() for line in text.split("\n"))
-        text = text.strip()
-        texts.append(text)
-    # Fix: join sections, then convert \n → <br> in one pass at the end
-    combined = "<br><br>".join(texts)
-    combined = combined.replace("\n", "<br>")
-    combined = combined.replace("…", "...")
-    return combined
-
-
-def extract_activity_metrics(html_content):
-    activities = []
-    items = re.findall(
-        r'<div class="gridItem[^"]*"[^>]*>.*?<div class=\'gridItemOverlayText activityType\'[^>]*>([^<]+)</div>.*?<div class=\'gridItemOverlayText activityMetrics\'[^>]*>([^<]+)</div>',
-        html_content,
-        re.DOTALL,
-    )
-    for activity_type, activity_metric in items:
-        activities.append(f"{activity_type.strip()}: {activity_metric.strip()}")
-    return activities
-
-
-def extract_media_links(html_content):
-    pattern = r'(?:src|href)=["\']([^"\']+)["\']'
-    matches = re.findall(pattern, html_content)
-    links = []
-    for m in matches:
-        if m.lower().endswith(IMAGE_EXTENSIONS + VIDEO_EXTENSIONS):
-            links.append(m.replace("../Resources/", ""))
-    return links
+def main():
+    open_journal_folder()
 
 
 if __name__ == "__main__":

@@ -34,6 +34,19 @@ The script generates its output in the `journals/` directory:
 - Responsive grid layout with dark mode support
 - Optional support to upload to an r2 bucket
 
+## R2 Bucket
+
+To make use of an R2 bucket, for example, if uploading large files for web publication, fill in these values in a `.env` file.
+```
+R2_ACCOUNT_ID
+R2_ACCESS_KEY
+R2_SECRET_KEY
+R2_BUCKET
+R2_PUBLIC_URL
+R2_TOKEN_VALUE
+BASE_URL (optional, will default to https://example.com if not filled in)
+```
+
 ## To-do
 
 - [x] Fix non HEIC/AVIF image formats (basically convert all images)
