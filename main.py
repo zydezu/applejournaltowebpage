@@ -208,7 +208,7 @@ def process_entry(
         if not os.path.exists(src):
             continue
         ext = os.path.splitext(link)[1].lower()
-        basename = os.path.splitext(os.path.basename(link))[0]
+        basename = sanitize_filename(os.path.splitext(os.path.basename(link))[0])
 
         if ext == ".heic":
             ext = ".avif"
