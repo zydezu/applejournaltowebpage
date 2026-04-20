@@ -299,9 +299,10 @@ def build_home_row(filename, output, layout_class):
     entry_folder_name = sanitize_filename(filename.replace(".html", ""))
     date = entry_folder_name[:10] if len(entry_folder_name) >= 10 else ""
 
-    text_snippet = (
-        output[0][:150] + "..." if output[0] and len(output[0]) > 150 else output[0]
-    )
+    # Strip HTML tags before truncating so we never cut mid-tag
+    raw_text = re.sub(r"<[^>]+>", " ", output[0] or "")
+    raw_text = re.sub(r"\s+", " ", raw_text).strip()
+    text_snippet = (raw_text[:150] + "...") if len(raw_text) > 150 else raw_text
 
     thumbnails = ""
     for m in output[1][:4]:
@@ -361,13 +362,15 @@ def build_home_page(rows, output_path, base_url):
 """
 
     for row in rows[::-1]:
+        clean_text = re.sub(r"<br\s*/?>|</?p[^>]*>", " ", row["text"])
+        clean_text = re.sub(r"\s+", " ", clean_text).strip()
         home_page_html += f"""        <a href="{row["link"]}" class="journal-row">
-            <div class="journal-info">
-                <div class="journal-date">{row["date"]}</div>
-                <div class="journal-text">{row["text"]}</div>
-            </div>
-            <div class="journal-thumbnails {row["layout"]}">{row["thumbnails"]}</div>
-        </a>
+                <div class="journal-info">
+                    <div class="journal-date">{row["date"]}</div>
+                    <div class="journal-text">{clean_text}</div>
+                </div>
+                <div class="journal-thumbnails {row["layout"]}">{row["thumbnails"]}</div>
+            </a>
 """
 
     home_page_html += """    </div>

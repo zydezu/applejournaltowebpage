@@ -51,9 +51,9 @@ function sortEntries(entries, sortBy) {
 function filterEntries(entries, query) {
     const q = query.toLowerCase().trim();
     entries.forEach((entry) => {
-        const matchesQuery = !q || 
-            entry.text.includes(q) || 
-            entry.dateDisplay.includes(q) || 
+        const matchesQuery = !q ||
+            entry.text.includes(q) ||
+            entry.dateDisplay.includes(q) ||
             entry.iso.includes(q);
         entry.element.classList.toggle('hidden', !matchesQuery);
     });
@@ -65,7 +65,7 @@ function updateJournalList(entries) {
 
     // Detach all elements
     entries.forEach(entry => journalList.removeChild(entry.element));
-    
+
     // Reattach in sorted order
     entries.forEach(entry => journalList.appendChild(entry.element));
 }
@@ -118,13 +118,13 @@ document.addEventListener('DOMContentLoaded', () => {
     function updateDisplay() {
         // Apply date formatting first
         applyDateFormat(entries, dateFormat.value);
-        
+
         // Then sort
         const sortedEntries = sortEntries(entries, sortBy.value);
-        
+
         // Update the DOM order
         updateJournalList(sortedEntries);
-        
+
         // Finally filter
         filterEntries(sortedEntries, searchBox.value);
 
