@@ -160,4 +160,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Initial display
     updateDisplay();
+
+    // Trigger fade-in animation after elements are in place
+    requestAnimationFrame(() => {
+        entries.forEach((entry, index) => {
+            setTimeout(() => {
+                entry.element.classList.add('fade-in');
+            }, index * 50);
+        });
+    });
 });
