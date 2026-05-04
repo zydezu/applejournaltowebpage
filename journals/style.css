@@ -19,16 +19,7 @@
 
 @font-face {
     font-family: "Hiragino Kaku Gothic Pro";
-    src: url("fonts/ヒラギノ角ゴ Pro W6.woff2") format("woff2");
-    font-weight: 600;
-    font-style: normal;
-    font-display: swap;
-}
-
-@font-face {
-    font-family: "Hiragino Kaku Gothic Pro";
-    src: url("fonts/ヒラギノ角ゴ Pro W3.woff2") format("woff2");
-    font-weight: 400;
+    src: url("fonts/HiraginoKakuGo_Pro_latin.woff2") format("woff2");
     font-style: normal;
     font-display: swap;
 }
