@@ -96,6 +96,7 @@ document.addEventListener('DOMContentLoaded', () => {
             element: el,
             iso: iso,
             text: textEl?.innerText.toLowerCase() || '',
+            fullText: (el.dataset.fulltext || '').toLowerCase(),
             dateDisplay: dateEl?.innerText.toLowerCase() || ''
         });
     });
