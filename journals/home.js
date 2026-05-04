@@ -53,6 +53,7 @@ function filterEntries(entries, query) {
     entries.forEach((entry) => {
         const matchesQuery = !q ||
             entry.text.includes(q) ||
+            entry.fullText.includes(q) ||
             entry.dateDisplay.includes(q) ||
             entry.iso.includes(q);
         entry.element.classList.toggle('hidden', !matchesQuery);

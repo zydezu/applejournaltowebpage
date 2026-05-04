@@ -1,3 +1,4 @@
+dotenv
 pillow
 pillow-heif
 boto3

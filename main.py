@@ -345,6 +345,7 @@ def build_home_row(filename: str, output: list, layout_class: str) -> dict:
         "date": date,
         "link": f"html/{entry_folder_name}/",
         "text": text_snippet,
+        "full_text": raw_text,
         "thumbnails": thumbnails,
         "layout": layout_class,
     }
@@ -397,7 +398,12 @@ def build_home_page(rows: list, output_path: str, base_url: str) -> str:
     for row in rows[::-1]:
         clean_text = re.sub(r"<br\s*/?>|</?p[^>]*>", " ", row["text"])
         clean_text = re.sub(r"\s+", " ", clean_text).strip()
-        home_page_html += f"""        <a href="{row["link"]}" class="journal-row">
+        full_text = re.sub(
+            r"<br\s*/?>|</?p[^>]*>", " ", row.get("full_text", row["text"])
+        )
+        full_text = re.sub(r"\s+", " ", full_text).strip()
+        full_text_escaped = full_text.replace('"', "&quot;").replace("'", "&#39;")
+        home_page_html += f"""        <a href="{row["link"]}" class="journal-row" data-fulltext="{full_text_escaped}">
                 <div class="journal-info">
                     <div class="journal-date">{row["date"]}</div>
                     <div class="journal-text">{clean_text}</div>
